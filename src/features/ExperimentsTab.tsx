@@ -126,47 +126,125 @@ export default function ExperimentsTab() {
   };
 
   // Primary Metrics
+  const baseControlRate = 5.0;
+  const controlRateVal = isSimulating 
+    ? baseControlRate + Math.sin(experimentExposedOffset / 3000) * 0.12 
+    : baseControlRate;
+  
+  const baseVariantRate = 6.2;
+  const variantRateVal = isSimulating 
+    ? baseVariantRate + Math.cos(experimentExposedOffset / 4000) * 0.15 
+    : baseVariantRate;
+
+  const dynamicLiftVal = ((variantRateVal - controlRateVal) / controlRateVal) * 100;
+  
   const northStarMetric = {
     name: "Checkout Completion Rate",
-    control: "5.0%",
-    variant: "6.2%",
-    lift: "+24.0%",
-    confidence: "99.4%",
-    status: "Significant Winner"
+    control: `${controlRateVal.toFixed(2)}%`,
+    variant: `${variantRateVal.toFixed(2)}%`,
+    lift: `${dynamicLiftVal >= 0 ? "+" : ""}${dynamicLiftVal.toFixed(1)}%`,
+    confidence: isSimulating 
+      ? `${(99.4 + Math.sin(experimentExposedOffset / 5000) * 0.15).toFixed(2)}%` 
+      : "99.4%",
+    status: dynamicLiftVal > 5 ? "Significant Winner" : "Inconclusive"
   };
 
   // Secondary metrics
   const secondaryMetrics = [
-    { name: "Add To Cart Rate", control: "34%", variant: "38%", lift: "+11.0%", color: "text-emerald-400" },
-    { name: "Payment Success Rate", control: "91%", variant: "94%", lift: "+3.0%", color: "text-emerald-400" },
-    { name: "Average Order Value", control: "₹1450", variant: "₹1510", lift: "+4.1%", color: "text-emerald-400" },
-    { name: "Refund Rate", control: "2.1%", variant: "2.0%", lift: "-4.8%", color: "text-emerald-400", isDrop: true }
+    { 
+      name: "Add To Cart Rate", 
+      control: isSimulating ? `${(34 + Math.sin(experimentExposedOffset / 6000) * 0.5).toFixed(1)}%` : "34%", 
+      variant: isSimulating ? `${(38 + Math.cos(experimentExposedOffset / 7000) * 0.6).toFixed(1)}%` : "38%", 
+      lift: isSimulating 
+        ? `+${(((38 + Math.cos(experimentExposedOffset / 7000) * 0.6) - (34 + Math.sin(experimentExposedOffset / 6000) * 0.5)) / (34 + Math.sin(experimentExposedOffset / 6000) * 0.5) * 100).toFixed(1)}%` 
+        : "+11.0%", 
+      color: "text-emerald-400" 
+    },
+    { 
+      name: "Payment Success Rate", 
+      control: isSimulating ? `${(91 + Math.cos(experimentExposedOffset / 8000) * 0.3).toFixed(1)}%` : "91%", 
+      variant: isSimulating ? `${(94 + Math.sin(experimentExposedOffset / 9000) * 0.4).toFixed(1)}%` : "94%", 
+      lift: isSimulating 
+        ? `+${(((94 + Math.sin(experimentExposedOffset / 9000) * 0.4) - (91 + Math.cos(experimentExposedOffset / 8000) * 0.3)) / (91 + Math.cos(experimentExposedOffset / 8000) * 0.3) * 100).toFixed(1)}%` 
+        : "+3.0%", 
+      color: "text-emerald-400" 
+    },
+    { 
+      name: "Average Order Value", 
+      control: isSimulating ? `₹${Math.round(1450 + Math.sin(experimentExposedOffset / 10000) * 20)}` : "₹1450", 
+      variant: isSimulating ? `₹${Math.round(1510 + Math.cos(experimentExposedOffset / 11000) * 25)}` : "₹1510", 
+      lift: isSimulating 
+        ? `+${(((1510 + Math.cos(experimentExposedOffset / 11000) * 25) - (1450 + Math.sin(experimentExposedOffset / 10000) * 20)) / (1450 + Math.sin(experimentExposedOffset / 10000) * 20) * 100).toFixed(1)}%` 
+        : "+4.1%", 
+      color: "text-emerald-400" 
+    },
+    { 
+      name: "Refund Rate", 
+      control: isSimulating ? `${(2.1 + Math.sin(experimentExposedOffset / 12000) * 0.05).toFixed(2)}%` : "2.1%", 
+      variant: isSimulating ? `${(2.0 + Math.cos(experimentExposedOffset / 13000) * 0.04).toFixed(2)}%` : "2.0%", 
+      lift: isSimulating 
+        ? `${(((2.0 + Math.cos(experimentExposedOffset / 13000) * 0.04) - (2.1 + Math.sin(experimentExposedOffset / 12000) * 0.05)) / (2.1 + Math.sin(experimentExposedOffset / 12000) * 0.05) * 100).toFixed(1)}%` 
+        : "-4.8%", 
+      color: "text-emerald-400", 
+      isDrop: true 
+    }
   ];
 
   // Variant performance comparison matrix
   const performanceMatrix = [
-    { metric: "Checkout Conversion", control: "5.0%", variant: "6.2%", lift: "+24.0%", color: "text-emerald-400" },
-    { metric: "Payment Success", control: "91.0%", variant: "94.0%", lift: "+3.3%", color: "text-emerald-400" },
-    { metric: "Revenue/User", control: "₹72.0", variant: "₹81.0", lift: "+12.5%", color: "text-emerald-400" },
-    { metric: "API Latency", control: "1.8s", variant: "1.6s", lift: "-11.1%", color: "text-emerald-400", isDrop: true }
+    { 
+      metric: "Checkout Conversion", 
+      control: isSimulating ? `${controlRateVal.toFixed(2)}%` : "5.0%", 
+      variant: isSimulating ? `${variantRateVal.toFixed(2)}%` : "6.2%", 
+      lift: isSimulating ? `${dynamicLiftVal >= 0 ? "+" : ""}${dynamicLiftVal.toFixed(1)}%` : "+24.0%", 
+      color: "text-emerald-400" 
+    },
+    { 
+      metric: "Payment Success", 
+      control: isSimulating ? `${(91 + Math.cos(experimentExposedOffset / 8000) * 0.3).toFixed(1)}%` : "91.0%", 
+      variant: isSimulating ? `${(94 + Math.sin(experimentExposedOffset / 9000) * 0.4).toFixed(1)}%` : "94.0%", 
+      lift: isSimulating 
+        ? `+${(((94 + Math.sin(experimentExposedOffset / 9000) * 0.4) - (91 + Math.cos(experimentExposedOffset / 8000) * 0.3)) / (91 + Math.cos(experimentExposedOffset / 8000) * 0.3) * 100).toFixed(1)}%` 
+        : "+3.3%", 
+      color: "text-emerald-400" 
+    },
+    { 
+      metric: "Revenue/User", 
+      control: isSimulating ? `₹${(72 + Math.sin(experimentExposedOffset / 10000) * 1.5).toFixed(1)}` : "₹72.0", 
+      variant: isSimulating ? `₹${(81 + Math.cos(experimentExposedOffset / 11000) * 2.0).toFixed(1)}` : "₹81.0", 
+      lift: isSimulating 
+        ? `+${(((81 + Math.cos(experimentExposedOffset / 11000) * 2.0) - (72 + Math.sin(experimentExposedOffset / 10000) * 1.5)) / (72 + Math.sin(experimentExposedOffset / 10000) * 1.5) * 100).toFixed(1)}%` 
+        : "+12.5%", 
+      color: "text-emerald-400" 
+    },
+    { 
+      metric: "API Latency", 
+      control: isSimulating ? `${(1.8 + Math.sin(experimentExposedOffset / 12000) * 0.05).toFixed(2)}s` : "1.8s", 
+      variant: isSimulating ? `${(1.6 + Math.cos(experimentExposedOffset / 13000) * 0.04).toFixed(2)}s` : "1.6s", 
+      lift: isSimulating 
+        ? `${(((1.6 + Math.cos(experimentExposedOffset / 13000) * 0.04) - (1.8 + Math.sin(experimentExposedOffset / 12000) * 0.05)) / (1.8 + Math.sin(experimentExposedOffset / 12000) * 0.05) * 100).toFixed(1)}%` 
+        : "-11.1%", 
+      color: "text-emerald-400", 
+      isDrop: true 
+    }
   ];
 
   // Segment level analysis table
   const segmentAnalysis = [
-    { segment: "New Users", lift: "+32.0%", color: "text-emerald-400" },
-    { segment: "Returning Users", lift: "+18.0%", color: "text-emerald-400" },
-    { segment: "Android Users", lift: "+28.0%", color: "text-emerald-400" },
-    { segment: "iOS Users", lift: "+8.0%", color: "text-emerald-400" },
-    { segment: "Tier-1 Cities", lift: "+25.0%", color: "text-emerald-400" },
-    { segment: "Tier-3 Cities", lift: "+15.0%", color: "text-emerald-400" }
+    { segment: "New Users", lift: isSimulating ? `+${(32 + Math.sin(experimentExposedOffset / 4000) * 0.8).toFixed(1)}%` : "+32.0%", color: "text-emerald-400" },
+    { segment: "Returning Users", lift: isSimulating ? `+${(18 + Math.cos(experimentExposedOffset / 5000) * 0.5).toFixed(1)}%` : "+18.0%", color: "text-emerald-400" },
+    { segment: "Android Users", lift: isSimulating ? `+${(28 + Math.sin(experimentExposedOffset / 6000) * 0.7).toFixed(1)}%` : "+28.0%", color: "text-emerald-400" },
+    { segment: "iOS Users", lift: isSimulating ? `+${(8 + Math.cos(experimentExposedOffset / 7000) * 0.3).toFixed(1)}%` : "+8.0%", color: "text-emerald-400" },
+    { segment: "Tier-1 Cities", lift: isSimulating ? `+${(25 + Math.sin(experimentExposedOffset / 8000) * 0.6).toFixed(1)}%` : "+25.0%", color: "text-emerald-400" },
+    { segment: "Tier-3 Cities", lift: isSimulating ? `+${(15 + Math.cos(experimentExposedOffset / 9000) * 0.4).toFixed(1)}%` : "+15.0%", color: "text-emerald-400" }
   ];
 
   // Funnel comparison Control vs Variant
   const funnelComparison = [
     { step: "Cart Added", control: 100, variant: 100 },
-    { step: "Payment Started", control: 82, variant: 88 },
-    { step: "UPI Verification", control: 72, variant: 85 },
-    { step: "Order Completed", control: 5.0, variant: 6.2 }
+    { step: "Payment Started", control: isSimulating ? parseFloat((82 + Math.sin(experimentExposedOffset / 5000) * 0.8).toFixed(1)) : 82, variant: isSimulating ? parseFloat((88 + Math.cos(experimentExposedOffset / 6000) * 0.9).toFixed(1)) : 88 },
+    { step: "UPI Verification", control: isSimulating ? parseFloat((72 + Math.cos(experimentExposedOffset / 7000) * 0.7).toFixed(1)) : 72, variant: isSimulating ? parseFloat((85 + Math.sin(experimentExposedOffset / 8000) * 0.8).toFixed(1)) : 85 },
+    { step: "Order Completed", control: controlRateVal, variant: variantRateVal }
   ];
 
   // Guardrail metrics
@@ -188,9 +266,9 @@ export default function ExperimentsTab() {
 
   // Charts Recharts dataset mapping
   const chartData = [
-    { name: "Checkout Rate", Control: 5.0, Variant: 6.2 },
-    { name: "Cart Adds", Control: 34, Variant: 38 },
-    { name: "Payment Success", Control: 91, Variant: 94 }
+    { name: "Checkout Rate", Control: controlRateVal, Variant: variantRateVal },
+    { name: "Cart Adds", Control: isSimulating ? parseFloat((34 + Math.sin(experimentExposedOffset / 6000) * 0.5).toFixed(1)) : 34, Variant: isSimulating ? parseFloat((38 + Math.cos(experimentExposedOffset / 7000) * 0.6).toFixed(1)) : 38 },
+    { name: "Payment Success", Control: isSimulating ? parseFloat((91 + Math.cos(experimentExposedOffset / 8000) * 0.3).toFixed(1)) : 91, Variant: isSimulating ? parseFloat((94 + Math.sin(experimentExposedOffset / 9000) * 0.4).toFixed(1)) : 94 }
   ];
 
   return (
@@ -605,7 +683,7 @@ export default function ExperimentsTab() {
           {/* Probability Variant Wins */}
           <div className="space-y-1">
             <span className="block text-[10px] text-text-muted uppercase font-bold">Probability Variant A Wins</span>
-            <div className="text-xl font-bold text-emerald-400 font-mono">99.4%</div>
+            <div className="text-xl font-bold text-emerald-400 font-mono">{northStarMetric.confidence}</div>
             <span className="text-[9px] block">Confidence threshold exceeded</span>
           </div>
 
@@ -619,22 +697,26 @@ export default function ExperimentsTab() {
           {/* Observed Effect */}
           <div className="space-y-1">
             <span className="block text-[10px] text-text-muted uppercase font-bold">Observed Lift Effect</span>
-            <div className="text-xl font-bold text-emerald-400 font-mono">+24.0%</div>
+            <div className="text-xl font-bold text-emerald-400 font-mono">{northStarMetric.lift}</div>
             <span className="text-[9px] block">Observed North Star impact</span>
           </div>
 
           {/* Confidence Interval */}
           <div className="space-y-1">
             <span className="block text-[10px] text-text-muted uppercase font-bold">Confidence Interval (95%)</span>
-            <div className="text-xl font-bold text-text-bright font-mono">+18.0% to +30.0%</div>
+            <div className="text-xl font-bold text-text-bright font-mono">
+              {isSimulating 
+                ? `+${(dynamicLiftVal - 6.0).toFixed(1)}% to +${(dynamicLiftVal + 6.0).toFixed(1)}%` 
+                : "+18.0% to +30.0%"}
+            </div>
             <span className="text-[9px] block">Bounds limit lift variance</span>
           </div>
         </div>
 
         <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-slate-800/60 pt-4 text-xs text-text-muted">
-          <div>Sample Size: <span className="font-semibold text-text-bright font-mono">2.5M Users</span></div>
-          <div>Statistical Power: <span className="font-semibold text-text-bright font-mono">95%</span></div>
-          <div>Calculated p-value: <span className="font-semibold text-emerald-400 font-mono">0.003</span></div>
+          <div>Sample Size: <span className="font-semibold text-text-bright font-mono">{isSimulating ? `${((2.5 * 1000000 + experimentExposedOffset) / 1000000).toFixed(2)}M Users` : "2.5M Users"}</span></div>
+          <div>Statistical Power: <span className="font-semibold text-text-bright font-mono">{isSimulating ? `${Math.min(99, Math.max(90, Math.round(95 + Math.sin(experimentExposedOffset / 4500) * 2)))}%` : "95%"}</span></div>
+          <div>Calculated p-value: <span className="font-semibold text-emerald-400 font-mono">{isSimulating ? (0.003 * (99.4 / parseFloat(northStarMetric.confidence))).toFixed(4) : "0.003"}</span></div>
           <div>Confidence Threshold limit: <span className="font-semibold text-text-bright font-mono">95.0%</span></div>
         </div>
       </div>

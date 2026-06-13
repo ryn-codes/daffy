@@ -47,11 +47,88 @@ import {
   Legend
 } from "recharts";
 import { mockEngine, UserProfile, AnalyticsEvent } from "@/lib/mockEngine";
+import { useSimulation } from "@/context/SimulationContext";
 
 export default function UsersTab() {
+  const { isSimulating, totalSimulatedEvents } = useSimulation();
   // Directory & Selection States
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<UserProfile>(mockEngine.users[0]);
+  const [selectedUserId, setSelectedUserId] = useState<string>(mockEngine.users[0].id);
+
+  const getDynamicUserRevenue = (user: UserProfile) => {
+    if (!isSimulating) return user.revenue;
+    const rate = user.tier === "Premium" ? 0.25 : user.tier === "Regular" ? 0.10 : 0.02;
+    return Math.floor(user.revenue + totalSimulatedEvents * rate);
+  };
+
+  const getDynamicUserOrders = (user: UserProfile) => {
+    if (!isSimulating) return user.purchaseCount;
+    const rate = user.tier === "Premium" ? 0.00005 : user.tier === "Regular" ? 0.00002 : 0.000005;
+    return Math.floor(user.purchaseCount + totalSimulatedEvents * rate);
+  };
+
+  const computedSelectedUser = React.useMemo(() => {
+    const user = mockEngine.users.find(u => u.id === selectedUserId) || mockEngine.users[0];
+    if (!isSimulating) return user;
+
+    const rate = user.tier === "Premium" ? 0.25 : user.tier === "Regular" ? 0.10 : 0.02;
+    const dynamicRevenue = Math.floor(user.revenue + totalSimulatedEvents * rate);
+
+    const ordersRate = user.tier === "Premium" ? 0.00005 : user.tier === "Regular" ? 0.00002 : 0.000005;
+    const dynamicPurchaseCount = Math.floor(user.purchaseCount + totalSimulatedEvents * ordersRate);
+
+    // Drifts for behavior metrics
+    const sessionsDelta = Math.floor(totalSimulatedEvents * 0.0001);
+    const dynamicSessions = user.behavior.sessions + sessionsDelta;
+    const dynamicDaysActive = user.behavior.daysActive + Math.floor(sessionsDelta / 4);
+    const dynamicProductsViewed = user.behavior.productsViewed + Math.floor(totalSimulatedEvents * 0.001);
+    const dynamicCartAdds = user.behavior.cartAdds + Math.floor(totalSimulatedEvents * 0.0002);
+    const dynamicSearches = user.behavior.searches + Math.floor(totalSimulatedEvents * 0.0005);
+    const dynamicWishlist = user.behavior.wishlist + Math.floor(totalSimulatedEvents * 0.0001);
+
+    // Demographics Pin Code / Language wiggles
+    const dynamicPinCode = isSimulating 
+      ? `${user.demographics.pincode.slice(0, 5)}${Math.floor(Math.sin(totalSimulatedEvents / 1000) * 4 + 5)}`
+      : user.demographics.pincode;
+
+    // Category spend wiggles:
+    const dynamicCategorySpend = user.categorySpend.map((item, idx) => {
+      const wiggle = Math.sin(totalSimulatedEvents / (1000 + idx * 500)) * 1.5;
+      const newPct = Math.max(1, Math.min(99, parseFloat((item.pct + wiggle).toFixed(1))));
+      return { ...item, pct: newPct };
+    });
+
+    // Commerce details wiggles
+    const dynamicBasketSize = Math.floor(user.commerceDetails.basketSize + Math.sin(totalSimulatedEvents / 1500) * 45);
+
+    return {
+      ...user,
+      revenue: dynamicRevenue,
+      purchaseCount: dynamicPurchaseCount,
+      behavior: {
+        ...user.behavior,
+        sessions: dynamicSessions,
+        daysActive: dynamicDaysActive,
+        productsViewed: dynamicProductsViewed,
+        cartAdds: dynamicCartAdds,
+        searches: dynamicSearches,
+        wishlist: dynamicWishlist
+      },
+      categorySpend: dynamicCategorySpend,
+      commerceDetails: {
+        ...user.commerceDetails,
+        basketSize: dynamicBasketSize
+      },
+      demographics: {
+        ...user.demographics,
+        pincode: dynamicPinCode
+      }
+    };
+  }, [selectedUserId, isSimulating, totalSimulatedEvents]);
+
+  const selectedUser = computedSelectedUser;
+  const setSelectedUser = (u: UserProfile) => setSelectedUserId(u.id);
+
   const [activeTab, setActiveTab] = useState<"Overview" | "Journey" | "Orders" | "Events" | "Properties" | "Segments" | "Notes">("Overview");
   
   // Sort and filter states
@@ -129,7 +206,7 @@ export default function UsersTab() {
     })
     .sort((a, b) => {
       if (sortOption === "name") return a.name.localeCompare(b.name);
-      if (sortOption === "ltv") return b.revenue - a.revenue;
+      if (sortOption === "ltv") return getDynamicUserRevenue(b) - getDynamicUserRevenue(a);
       // Sort by active: Premium tier first, then active status
       if (sortOption === "active") {
         if (a.tier === "Premium" && b.tier !== "Premium") return -1;
@@ -313,10 +390,10 @@ export default function UsersTab() {
                   {/* Quick Metadata Row */}
                   <div className="flex justify-between items-center text-[10px] bg-slate-950/40 p-2 rounded-lg border border-border-subtle/50">
                     <span className="text-text-muted font-semibold flex items-center gap-0.5">
-                      LTV: <span className="text-emerald-400 font-bold">₹{user.revenue.toLocaleString("en-IN")}</span>
+                      LTV: <span className="text-emerald-400 font-bold font-mono">₹{getDynamicUserRevenue(user).toLocaleString("en-IN")}</span>
                     </span>
-                    <span className="text-text-muted font-semibold">
-                      Orders: <span className="text-accent-blue font-bold">{user.purchaseCount}</span>
+                    <span className="text-text-muted font-semibold font-mono">
+                      Orders: <span className="text-accent-blue font-bold">{getDynamicUserOrders(user)}</span>
                     </span>
                     <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold ${
                       user.riskStatus === "High Value" || user.riskStatus === "Frequent Buyer"
@@ -408,34 +485,34 @@ export default function UsersTab() {
             {/* LTV */}
             <div className="bg-slate-950/40 border border-border-subtle/80 rounded-xl p-3.5 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Life Time Value (LTV)</span>
-              <p className="text-xl font-black text-emerald-400 mt-1.5">₹{selectedUser.revenue.toLocaleString("en-IN")}</p>
+              <p className="text-xl font-black text-emerald-400 mt-1.5 font-mono">₹{getDynamicUserRevenue(selectedUser).toLocaleString("en-IN")}</p>
               <div className="flex items-center gap-1 text-[9px] mt-1 font-semibold">
                 <span className="bg-emerald-500/10 text-primary px-1 rounded">{trends.ltv}</span>
-                <span className="text-text-muted">vs last month</span>
+                <span className="text-text-muted">{isSimulating ? "Simulating" : "vs last month"}</span>
               </div>
             </div>
 
             {/* Orders */}
             <div className="bg-slate-950/40 border border-border-subtle/80 rounded-xl p-3.5 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Total Orders</span>
-              <p className="text-xl font-black text-accent-blue mt-1.5">{selectedUser.purchaseCount}</p>
+              <p className="text-xl font-black text-accent-blue mt-1.5 font-mono">{getDynamicUserOrders(selectedUser)}</p>
               <div className="flex items-center gap-1 text-[9px] mt-1 font-semibold">
                 <span className="bg-emerald-500/10 text-primary px-1 rounded">{trends.orders}</span>
-                <span className="text-text-muted">vs last month</span>
+                <span className="text-text-muted">{isSimulating ? "Simulating" : "vs last month"}</span>
               </div>
             </div>
 
             {/* AOV */}
             <div className="bg-slate-950/40 border border-border-subtle/80 rounded-xl p-3.5 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Avg Order Value (AOV)</span>
-              <p className="text-xl font-black text-text-bright mt-1.5">
-                ₹{selectedUser.purchaseCount > 0 
-                  ? Math.round(selectedUser.revenue / selectedUser.purchaseCount).toLocaleString("en-IN")
+              <p className="text-xl font-black text-text-bright mt-1.5 font-mono">
+                ₹{getDynamicUserOrders(selectedUser) > 0 
+                  ? Math.round(getDynamicUserRevenue(selectedUser) / getDynamicUserOrders(selectedUser)).toLocaleString("en-IN")
                   : "0"}
               </p>
               <div className="flex items-center gap-1 text-[9px] mt-1 font-semibold">
                 <span className="bg-emerald-500/10 text-primary px-1 rounded">{trends.aov}</span>
-                <span className="text-text-muted">vs last month</span>
+                <span className="text-text-muted">{isSimulating ? "Simulating" : "vs last month"}</span>
               </div>
             </div>
 

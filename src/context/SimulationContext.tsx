@@ -75,95 +75,100 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (isSimulating) {
-      // Set active status rates
-      setLiveRps(Math.floor(102000 + Math.random() * 8000));
+      // Set initial 10 Lakh rps scale
+      setLiveRps(Math.floor(1005000 + Math.random() * 45000));
       
       tickInterval.current = setInterval(() => {
-        // 1. Calculate random rates
-        const currentRps = Math.floor(104000 + (Math.random() - 0.5) * 6000);
+        // 1. Calculate 10 Lakh events/sec (1,000,000 eps)
+        const currentRps = Math.floor(1012000 + (Math.random() - 0.5) * 58000);
         setLiveRps(currentRps);
 
         // 2. Increment offsets (100ms ticks = 1/10th of a second)
         const eventsThisTick = Math.floor(currentRps / 10);
         setTotalSimulatedEvents(prev => prev + eventsThisTick);
 
-        // GMV ticks: ~₹2,200/sec on average => ~₹220/tick
-        const gmvInc = 180 + Math.floor(Math.random() * 120);
+        // With 1,000,000 events/sec, conversions (~4.32%) yield ~43,200 checkouts/sec.
+        // At ₹1,500 Average Order Value, GMV increases by ~₹6.48 Cr/sec => ~₹64.8 Lakh per 100ms tick
+        const gmvInc = 5824000 + Math.floor(Math.random() * 850000);
         setGmvTodayOffset(prev => prev + gmvInc);
 
-        // Orders: ~2.5 orders/sec => ~0.25/tick
-        const orderRand = Math.random();
-        if (orderRand < 0.25) {
-          setOrdersTodayOffset(prev => prev + 1);
-        }
+        // Orders: ~43,200 orders/sec => ~4,320 orders per tick
+        const ordersInc = 4010 + Math.floor(Math.random() * 620);
+        setOrdersTodayOffset(prev => prev + ordersInc);
 
-        // Active buyers: ~1.8 buyers/sec
-        if (Math.random() < 0.18) {
-          setBuyersTodayOffset(prev => prev + 1);
-        }
+        // Active buyers: ~18,000 buyers/sec => ~1,800 per tick
+        const buyersInc = 1620 + Math.floor(Math.random() * 380);
+        setBuyersTodayOffset(prev => prev + buyersInc);
 
-        // MRR offset: ~$0.55/sec
-        setMrrOffset(prev => prev + (0.05 + Math.random() * 0.05));
+        // MRR offset: ~$25/sec => ~$2.5 per tick
+        setMrrOffset(prev => prev + (2.1 + Math.random() * 1.8));
 
-        // Flag evaluations: ~8,200 evals/sec => ~820/tick
-        setFlagEvaluationsOffset(prev => prev + 750 + Math.floor(Math.random() * 150));
+        // Flag evaluations: ~820,000/sec => ~82,000 per tick
+        const flagsInc = 79500 + Math.floor(Math.random() * 6500);
+        setFlagEvaluationsOffset(prev => prev + flagsInc);
 
-        // Experiment exposures: ~4,200/sec => ~420/tick
-        setExperimentExposedOffset(prev => prev + 380 + Math.floor(Math.random() * 80));
+        // Experiment exposures: ~420,000/sec => ~42,000 per tick
+        const expInc = 39800 + Math.floor(Math.random() * 4800);
+        setExperimentExposedOffset(prev => prev + expInc);
 
         // 3. Performance metric drift
         setApiLatency(prev => {
-          const delta = (Math.random() - 0.5) * 8;
+          const delta = (Math.random() - 0.5) * 12;
           const newVal = Math.round(prev + delta);
           return Math.max(180, Math.min(260, newVal));
         });
         setCrashRate(prev => {
-          const delta = (Math.random() - 0.5) * 0.005;
+          const delta = (Math.random() - 0.5) * 0.008;
           const newVal = parseFloat((prev + delta).toFixed(3));
           return Math.max(0.04, Math.min(0.12, newVal));
         });
         setSearchLatency(prev => {
-          const delta = (Math.random() - 0.5) * 6;
+          const delta = (Math.random() - 0.5) * 10;
           const newVal = Math.round(prev + delta);
           return Math.max(150, Math.min(210, newVal));
         });
         setZeroResults(prev => {
-          const delta = (Math.random() - 0.5) * 0.1;
+          const delta = (Math.random() - 0.5) * 0.15;
           const newVal = parseFloat((prev + delta).toFixed(2));
           return Math.max(5.4, Math.min(7.0, newVal));
         });
 
-        // 4. Ingest new console logs (throttled visually to 1-2 new log per 100ms so it looks extremely fast but readable)
-        const runLog = Math.random() < 0.4;
-        if (runLog) {
+        // 4. Ingest new console logs (throttled visually to look extremely fast but readable)
+        const logAttempts = 2 + Math.floor(Math.random() * 3); // inject multiple events per tick
+        setLiveLogs(prev => {
+          let updated = [...prev];
           const users = mockEngine.users;
-          const user = users[Math.floor(Math.random() * users.length)];
-          const randEvent = EVENT_NAMES[Math.floor(Math.random() * EVENT_NAMES.length)];
           
-          let detail = `user: ${user.name} (${user.id})`;
-          if (randEvent === "product_viewed") {
-            const products = ["iPhone 15 (Blue)", "Mi Smart Band 8", "Nike Air Max Shoes", "Boat Rockerz"];
-            detail = `SKU: ${products[Math.floor(Math.random() * products.length)]} - Viewed`;
-          } else if (randEvent === "cart_added") {
-            detail = `Item added to shopping cart - Basket value ₹${1500 + Math.floor(Math.random() * 5000)}`;
-          } else if (randEvent === "payment_success") {
-            detail = `UPI checkout success - Transacted ₹${2000 + Math.floor(Math.random() * 8000)}`;
-          } else if (randEvent === "coupon_applied") {
-            const coupons = ["SAVE20", "FESTIVAL30", "FREESHIP", "WELCOME10"];
-            detail = `Applied coupon code ${coupons[Math.floor(Math.random() * coupons.length)]}`;
+          for (let i = 0; i < logAttempts; i++) {
+            const user = users[Math.floor(Math.random() * users.length)];
+            const randEvent = EVENT_NAMES[Math.floor(Math.random() * EVENT_NAMES.length)];
+            
+            let detail = `user: ${user.name} (${user.id})`;
+            if (randEvent === "product_viewed") {
+              const products = ["iPhone 15 (Blue)", "Mi Smart Band 8", "Nike Air Max Shoes", "Boat Rockerz"];
+              detail = `SKU: ${products[Math.floor(Math.random() * products.length)]} - Viewed`;
+            } else if (randEvent === "cart_added") {
+              detail = `Item added to shopping cart - Basket value ₹${1500 + Math.floor(Math.random() * 5000)}`;
+            } else if (randEvent === "payment_success") {
+              detail = `UPI checkout success - Transacted ₹${2000 + Math.floor(Math.random() * 8000)}`;
+            } else if (randEvent === "coupon_applied") {
+              const coupons = ["SAVE20", "FESTIVAL30", "FREESHIP", "WELCOME10"];
+              detail = `Applied coupon code ${coupons[Math.floor(Math.random() * coupons.length)]}`;
+            }
+
+            const ms = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+            const logTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + "." + ms;
+            
+            updated.push({
+              time: logTime,
+              event: randEvent,
+              device: user.device,
+              detail
+            });
           }
-
-          const logTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + "." + String(Math.floor(Math.random() * 10));
           
-          const newLog: LiveLog = {
-            time: logTime,
-            event: randEvent,
-            device: user.device,
-            detail
-          };
-
-          setLiveLogs(prev => [...prev.slice(-49), newLog]);
-        }
+          return updated.slice(-60); // Keep last 60 logs
+        });
       }, 100);
     } else {
       setLiveRps(0);

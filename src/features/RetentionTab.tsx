@@ -42,6 +42,7 @@ import {
   Bar,
   Cell
 } from "recharts";
+import { useSimulation } from "@/context/SimulationContext";
 
 interface DrilldownDetails {
   cohortName: string;
@@ -54,6 +55,15 @@ interface DrilldownDetails {
 }
 
 export default function RetentionTab() {
+  const { isSimulating, buyersTodayOffset, gmvTodayOffset } = useSimulation();
+
+  const getDynamicRate = (rate: number, idx: number, rowName: string) => {
+    if (rate === -1 || rate === 100) return rate;
+    if (!isSimulating) return rate;
+    const offset = Math.sin(buyersTodayOffset / 500 + idx + rowName.charCodeAt(0)) * 1.5;
+    return parseFloat((rate + offset).toFixed(1));
+  };
+
   // Config Bar States
   const [cohortType, setCohortType] = useState("Signup Date");
   const [dateRange, setDateRange] = useState("Last 6 Months");
@@ -70,7 +80,7 @@ export default function RetentionTab() {
   const [matrixViewType, setMatrixViewType] = useState<"heatmap" | "table" | "curve">("heatmap");
 
   // Cohort Cell Drilldown State
-  const [drilldownCell, setDrilldownCell] = useState<DrilldownDetails | null>(null);
+  const [drilldownCellCoords, setDrilldownCellCoords] = useState<{ cohortName: string, weekIndex: number, rate: number } | null>(null);
 
   // Action feedback alert
   const [toastText, setToastText] = useState<string | null>(null);
@@ -82,66 +92,104 @@ export default function RetentionTab() {
 
   // KPI calculations
   const kpis = {
-    retention: { value: "42.8%", change: "+4.3%", trend: "up" },
-    repeat: { value: "38.4M", change: "52.1%", trend: "up" },
-    churn: { value: "12.8M", change: "↓ -2.4%", trend: "down" },
-    nrr: { value: "118%", change: "+8.2%", trend: "up" },
-    frequency: { value: "4.8", change: "+12.0%", trend: "up" },
-    ltv: { value: "₹8,450", change: "+6.8%", trend: "up" }
+    retention: { value: isSimulating ? `${(42.8 + Math.sin(buyersTodayOffset / 1000) * 0.4).toFixed(1)}%` : "42.8%", change: "+4.3%", trend: "up" },
+    repeat: { value: isSimulating ? `${(38.4 + buyersTodayOffset / 1000000).toFixed(4)}M` : "38.4M", change: "52.1%", trend: "up" },
+    churn: { value: isSimulating ? `${(12.8 + (buyersTodayOffset * 0.33) / 1000000).toFixed(4)}M` : "12.8M", change: "↓ -2.4%", trend: "down" },
+    nrr: { value: isSimulating ? `${Math.round(118 + Math.cos(buyersTodayOffset / 800) * 0.8)}%` : "118%", change: "+8.2%", trend: "up" },
+    frequency: { value: isSimulating ? (4.8 + Math.sin(buyersTodayOffset / 1500) * 0.1).toFixed(2) : "4.8", change: "+12.0%", trend: "up" },
+    ltv: { value: isSimulating ? `₹${Math.round(8450 + gmvTodayOffset / 10000000).toLocaleString("en-IN")}` : "₹8,450", change: "+6.8%", trend: "up" }
   };
 
   // Retention Curve Line Chart Data (Week 0 to Week 12)
   const curveData = [
     { name: "Wk 0", current: 100, previous: 100 },
-    { name: "Wk 1", current: 41.2, previous: 35.8 },
-    { name: "Wk 2", current: 30.7, previous: 26.5 },
-    { name: "Wk 3", current: 23.1, previous: 19.8 },
-    { name: "Wk 4", current: 18.7, previous: 15.2 },
-    { name: "Wk 5", current: 14.1, previous: 11.4 },
-    { name: "Wk 6", current: 10.6, previous: 8.8 },
-    { name: "Wk 7", current: 8.2, previous: 6.9 },
-    { name: "Wk 8", current: 6.6, previous: 5.5 },
-    { name: "Wk 9", current: 5.3, previous: 4.6 },
-    { name: "Wk 10", current: 4.2, previous: 3.8 },
-    { name: "Wk 11", current: 3.4, previous: 3.1 },
-    { name: "Wk 12", current: 2.7, previous: 2.4 }
+    { name: "Wk 1", current: isSimulating ? parseFloat((41.2 + Math.sin(buyersTodayOffset / 1000) * 0.5).toFixed(1)) : 41.2, previous: 35.8 },
+    { name: "Wk 2", current: isSimulating ? parseFloat((30.7 + Math.cos(buyersTodayOffset / 1200) * 0.4).toFixed(1)) : 30.7, previous: 26.5 },
+    { name: "Wk 3", current: isSimulating ? parseFloat((23.1 + Math.sin(buyersTodayOffset / 1400) * 0.3).toFixed(1)) : 23.1, previous: 19.8 },
+    { name: "Wk 4", current: isSimulating ? parseFloat((18.7 + Math.cos(buyersTodayOffset / 1600) * 0.3).toFixed(1)) : 18.7, previous: 15.2 },
+    { name: "Wk 5", current: isSimulating ? parseFloat((14.1 + Math.sin(buyersTodayOffset / 1800) * 0.2).toFixed(1)) : 14.1, previous: 11.4 },
+    { name: "Wk 6", current: isSimulating ? parseFloat((10.6 + Math.cos(buyersTodayOffset / 2000) * 0.2).toFixed(1)) : 10.6, previous: 8.8 },
+    { name: "Wk 7", current: isSimulating ? parseFloat((8.2 + Math.sin(buyersTodayOffset / 2200) * 0.15).toFixed(1)) : 8.2, previous: 6.9 },
+    { name: "Wk 8", current: isSimulating ? parseFloat((6.6 + Math.cos(buyersTodayOffset / 2400) * 0.15).toFixed(1)) : 6.6, previous: 5.5 },
+    { name: "Wk 9", current: isSimulating ? parseFloat((5.3 + Math.sin(buyersTodayOffset / 2600) * 0.1).toFixed(1)) : 5.3, previous: 4.6 },
+    { name: "Wk 10", current: isSimulating ? parseFloat((4.2 + Math.cos(buyersTodayOffset / 2800) * 0.1).toFixed(1)) : 4.2, previous: 3.8 },
+    { name: "Wk 11", current: isSimulating ? parseFloat((3.4 + Math.sin(buyersTodayOffset / 3000) * 0.05).toFixed(1)) : 3.4, previous: 3.1 },
+    { name: "Wk 12", current: isSimulating ? parseFloat((2.7 + Math.cos(buyersTodayOffset / 3200) * 0.05).toFixed(1)) : 2.7, previous: 2.4 }
   ];
 
   // Cohort Heatmap Row Data
-  const cohortsData = [
-    { name: "May 06 - May 12", size: "1.2M", rates: [100, 45, 33, 25, 19, 15, 11, 9, 7, 6, 5, 4, 3] },
-    { name: "May 13 - May 19", size: "1.1M", rates: [100, 44, 31, 24, 18, 14, 11, 8, 7, 5, 4, 3, 3] },
-    { name: "May 20 - May 26", size: "1.3M", rates: [100, 42, 30, 23, 17, 13, 10, 8, 6, 5, 4, 3, 3] },
-    { name: "May 27 - Jun 02", size: "1.4M", rates: [100, 41, 29, 22, 17, 13, 10, 7, 6, 5, 4, 4, -1] },
-    { name: "Jun 03 - Jun 09", size: "1.5M", rates: [100, 41, 28, 21, 16, 12, 9, 7, 6, 5, 4, -1, -1] },
-    { name: "Jun 10 - Jun 16", size: "1.6M", rates: [100, 40, 28, 21, 15, 11, 9, 6, 5, -1, -1, -1, -1] }
+  const baseCohortsData = [
+    { name: "May 06 - May 12", size: 1.2, rates: [100, 45, 33, 25, 19, 15, 11, 9, 7, 6, 5, 4, 3] },
+    { name: "May 13 - May 19", size: 1.1, rates: [100, 44, 31, 24, 18, 14, 11, 8, 7, 5, 4, 3, 3] },
+    { name: "May 20 - May 26", size: 1.3, rates: [100, 42, 30, 23, 17, 13, 10, 8, 6, 5, 4, 3, 3] },
+    { name: "May 27 - Jun 02", size: 1.4, rates: [100, 41, 29, 22, 17, 13, 10, 7, 6, 5, 4, 4, -1] },
+    { name: "Jun 03 - Jun 09", size: 1.5, rates: [100, 41, 28, 21, 16, 12, 9, 7, 6, 5, 4, -1, -1] },
+    { name: "Jun 10 - Jun 16", size: 1.6, rates: [100, 40, 28, 21, 15, 11, 9, 6, 5, -1, -1, -1, -1] }
   ];
+
+  const cohortsData = baseCohortsData.map(c => ({
+    name: c.name,
+    size: isSimulating ? `${(c.size + buyersTodayOffset * (c.size / 24) / 1000000).toFixed(4)}M` : `${c.size}M`,
+    rates: c.rates.map((r, i) => getDynamicRate(r, i, c.name))
+  }));
 
   // Segment Table Data
-  const segmentsData = [
-    { name: "Premium Users", size: "4.2M", w1: "62.4%", w4: "28.3%", w12: "5.4%", change: "↑ 8.2%", trend: "up" },
-    { name: "Frequent Buyers", size: "6.8M", w1: "55.1%", w4: "24.2%", w12: "4.6%", change: "↑ 6.7%", trend: "up" },
-    { name: "New Users", size: "10.5M", w1: "32.8%", w4: "13.2%", w12: "1.9%", change: "↑ 2.8%", trend: "up" },
-    { name: "Electronics Enthusiasts", size: "3.9M", w1: "48.3%", w4: "22.7%", w12: "4.1%", change: "↑ 5.1%", trend: "up" },
-    { name: "Fashion Shoppers", size: "3.2M", w1: "35.7%", w4: "14.6%", w12: "2.2%", change: "↑ 3.4%", trend: "up" },
-    { name: "At Risk Users", size: "1.8M", w1: "18.8%", w4: "6.3%", w12: "0.8%", change: "↓ -1.2%", trend: "down" }
+  const baseSegmentsData = [
+    { name: "Premium Users", size: 4.2, w1: 62.4, w4: 28.3, w12: 5.4, change: "↑ 8.2%", trend: "up" },
+    { name: "Frequent Buyers", size: 6.8, w1: 55.1, w4: 24.2, w12: 4.6, change: "↑ 6.7%", trend: "up" },
+    { name: "New Users", size: 10.5, w1: 32.8, w4: 13.2, w12: 1.9, change: "↑ 2.8%", trend: "up" },
+    { name: "Electronics Enthusiasts", size: 3.9, w1: 48.3, w4: 22.7, w12: 4.1, change: "↑ 5.1%", trend: "up" },
+    { name: "Fashion Shoppers", size: 3.2, w1: 35.7, w4: 14.6, w12: 2.2, change: "↑ 3.4%", trend: "up" },
+    { name: "At Risk Users", size: 1.8, w1: 18.8, w4: 6.3, w12: 0.8, change: "↓ -1.2%", trend: "down" }
   ];
 
+  const segmentsData = baseSegmentsData.map(s => {
+    const scale = isSimulating ? 1 + (buyersTodayOffset / 100000000) : 1;
+    const w1Dyn = isSimulating ? s.w1 + Math.sin(buyersTodayOffset / 600 + s.w1) * 0.5 : s.w1;
+    const w4Dyn = isSimulating ? s.w4 + Math.cos(buyersTodayOffset / 800 + s.w4) * 0.4 : s.w4;
+    const w12Dyn = isSimulating ? s.w12 + Math.sin(buyersTodayOffset / 1000 + s.w12) * 0.15 : s.w12;
+    return {
+      name: s.name,
+      size: `${(s.size * scale).toFixed(4)}M`,
+      w1: `${w1Dyn.toFixed(1)}%`,
+      w4: `${w4Dyn.toFixed(1)}%`,
+      w12: `${w12Dyn.toFixed(1)}%`,
+      change: s.change,
+      trend: s.trend
+    };
+  });
+
   // Platform Table Data
-  const platformsData = [
-    { name: "Android App", size: "14.2M", w1: "42.6%", w4: "19.1%", w12: "2.9%", change: "↑ 4.8%", trend: "up" },
-    { name: "iOS App", size: "5.1M", w1: "46.8%", w4: "21.3%", w12: "3.5%", change: "↑ 5.2%", trend: "up" },
-    { name: "Web", size: "4.3M", w1: "37.2%", w4: "16.4%", w12: "2.3%", change: "↑ 3.1%", trend: "up" },
-    { name: "Flipkart Lite", size: "1.2M", w1: "29.5%", w4: "11.7%", w12: "1.5%", change: "↑ 2.6%", trend: "up" }
+  const basePlatformsData = [
+    { name: "Android App", size: 14.2, w1: 42.6, w4: 19.1, w12: 2.9, change: "↑ 4.8%", trend: "up" },
+    { name: "iOS App", size: 5.1, w1: 46.8, w4: 21.3, w12: 3.5, change: "↑ 5.2%", trend: "up" },
+    { name: "Web", size: 4.3, w1: 37.2, w4: 16.4, w12: 2.3, change: "↑ 3.1%", trend: "up" },
+    { name: "Flipkart Lite", size: 1.2, w1: 29.5, w4: 11.7, w12: 1.5, change: "↑ 2.6%", trend: "up" }
   ];
+
+  const platformsData = basePlatformsData.map(p => {
+    const scale = isSimulating ? 1 + (buyersTodayOffset / 100000000) : 1;
+    const w1Dyn = isSimulating ? p.w1 + Math.sin(buyersTodayOffset / 700 + p.w1) * 0.5 : p.w1;
+    const w4Dyn = isSimulating ? p.w4 + Math.cos(buyersTodayOffset / 900 + p.w4) * 0.4 : p.w4;
+    const w12Dyn = isSimulating ? p.w12 + Math.sin(buyersTodayOffset / 1100 + p.w12) * 0.15 : p.w12;
+    return {
+      name: p.name,
+      size: `${(p.size * scale).toFixed(4)}M`,
+      w1: `${w1Dyn.toFixed(1)}%`,
+      w4: `${w4Dyn.toFixed(1)}%`,
+      w12: `${w12Dyn.toFixed(1)}%`,
+      change: p.change,
+      trend: p.trend
+    };
+  });
 
   // Reactivation Channels
   const channelsData = [
-    { name: "Push Notification", size: "1.4M", impact: "↑ 22.6%" },
-    { name: "Email Campaign", size: "820K", impact: "↑ 15.3%" },
-    { name: "WhatsApp", size: "610K", impact: "↑ 10.2%" },
-    { name: "SMS", size: "230K", impact: "↑ 5.8%" },
-    { name: "In-App Banner", size: "120K", impact: "↑ 4.1%" }
+    { name: "Push Notification", size: isSimulating ? `${(1.4 + buyersTodayOffset * 0.05 / 1000000).toFixed(4)}M` : "1.4M", impact: "↑ 22.6%" },
+    { name: "Email Campaign", size: isSimulating ? `${(820 + buyersTodayOffset * 0.03 / 1000).toFixed(1)}K` : "820K", impact: "↑ 15.3%" },
+    { name: "WhatsApp", size: isSimulating ? `${(610 + buyersTodayOffset * 0.02 / 1000).toFixed(1)}K` : "610K", impact: "↑ 10.2%" },
+    { name: "SMS", size: isSimulating ? `${(230 + buyersTodayOffset * 0.01 / 1000).toFixed(1)}K` : "230K", impact: "↑ 5.8%" },
+    { name: "In-App Banner", size: isSimulating ? `${(120 + buyersTodayOffset * 0.005 / 1000).toFixed(1)}K` : "120K", impact: "↑ 4.1%" }
   ];
 
   // AI Retention Insights
@@ -175,16 +223,30 @@ export default function RetentionTab() {
   // Cohort Cell click trigger details
   const handleCellClick = (cohortName: string, weekIndex: number, rate: number) => {
     if (rate === -1) return;
-    setDrilldownCell({
+    setDrilldownCellCoords({ cohortName, weekIndex, rate });
+  };
+
+  const drilldownCell = (() => {
+    if (!drilldownCellCoords) return null;
+    const { cohortName, weekIndex, rate } = drilldownCellCoords;
+    const cohortItem = cohortsData.find(c => c.name === cohortName);
+    const sizeVal = cohortItem ? parseFloat(cohortItem.size) : 1.2;
+    
+    // Recalculate dynamic rate for the cell at render time
+    const baseRow = baseCohortsData.find(b => b.name === cohortName);
+    const baseRate = baseRow ? baseRow.rates[weekIndex] : rate;
+    const dynamicRate = getDynamicRate(baseRate, weekIndex, cohortName);
+
+    return {
       cohortName,
       weekName: `Week ${weekIndex}`,
-      users: `${(parseFloat(cohortsData.find(c => c.name === cohortName)?.size || "1") * (rate / 100)).toFixed(2)}M`,
-      rate: `${rate}%`,
+      users: `${(sizeVal * (dynamicRate / 100)).toFixed(4)}M`,
+      rate: `${dynamicRate.toFixed(1)}%`,
       categories: ["Electronics", "Fashion", "Grocery"],
-      orders: Math.round(rate * 2.8),
-      ltv: `₹${(8450 + weekIndex * 150).toLocaleString("en-IN")}`
-    });
-  };
+      orders: Math.round(dynamicRate * 2.8),
+      ltv: `₹${(Math.round(8450 + gmvTodayOffset / 10000000) + weekIndex * 150).toLocaleString("en-IN")}`
+    };
+  })();
 
   // Retention Health Score Circular Dial Variables
   const strokeRadius = 26;
@@ -1003,7 +1065,7 @@ export default function RetentionTab() {
       {/* ================= COHORT CELLS DRILLDOWN DIALOG MODAL ================= */}
       {drilldownCell && (
         <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="absolute inset-0 cursor-pointer" onClick={() => setDrilldownCell(null)} />
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setDrilldownCellCoords(null)} />
           
           <div className="relative w-full max-w-md bg-slate-950 border border-border-subtle rounded-2xl p-6 shadow-2xl space-y-5 animate-scale-up">
             
@@ -1014,7 +1076,7 @@ export default function RetentionTab() {
                 <h4 className="text-sm font-black text-text-bright mt-1">{drilldownCell.cohortName} • {drilldownCell.weekName}</h4>
               </div>
               <button 
-                onClick={() => setDrilldownCell(null)}
+                onClick={() => setDrilldownCellCoords(null)}
                 className="p-1 rounded bg-slate-900 border border-border-subtle text-text-muted hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1058,7 +1120,7 @@ export default function RetentionTab() {
               <button 
                 onClick={() => {
                   handleActionToast(`Campaign scheduled for ${drilldownCell.cohortName} users.`);
-                  setDrilldownCell(null);
+                  setDrilldownCellCoords(null);
                 }}
                 className="py-2 bg-slate-900 hover:border-slate-800 border border-border-subtle text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
               >
@@ -1067,7 +1129,7 @@ export default function RetentionTab() {
               <button 
                 onClick={() => {
                   handleActionToast(`Segment created for ${drilldownCell.cohortName} users.`);
-                  setDrilldownCell(null);
+                  setDrilldownCellCoords(null);
                 }}
                 className="py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
               >

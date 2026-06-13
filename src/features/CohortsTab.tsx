@@ -42,6 +42,7 @@ import {
   Pie,
   Cell
 } from "recharts";
+import { useSimulation } from "@/context/SimulationContext";
 
 interface CohortDetailDrawer {
   cohortName: string;
@@ -55,6 +56,15 @@ interface CohortDetailDrawer {
 }
 
 export default function CohortsTab() {
+  const { isSimulating, buyersTodayOffset, gmvTodayOffset } = useSimulation();
+
+  const getDynamicRate = (rate: number, idx: number, rowName: string) => {
+    if (rate === -1 || rate === 100) return rate;
+    if (!isSimulating) return rate;
+    const offset = Math.sin(buyersTodayOffset / 500 + idx + rowName.charCodeAt(0)) * 1.5;
+    return parseFloat((rate + offset).toFixed(1));
+  };
+
   // Filters Config bar states
   const [cohortType, setCohortType] = useState("User Property");
   const [cohortDef, setCohortDef] = useState("Users with purchase > 0");
@@ -65,7 +75,7 @@ export default function CohortsTab() {
   const [showFilters, setShowFilters] = useState(true);
 
   // Cohort Detail Drawer
-  const [selectedCohortDrawer, setSelectedCohortDrawer] = useState<CohortDetailDrawer | null>(null);
+  const [selectedCohortIndex, setSelectedCohortIndex] = useState<{ cohortName: string, usersSize: string, rate: number, weekIdx: number } | null>(null);
 
   // Interactive Toast alert feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -78,50 +88,90 @@ export default function CohortsTab() {
   // KPI calculations
   const kpiRows = {
     totalCohorts: { value: "24", change: "↑ 33%", trend: "up" },
-    totalUsers: { value: "2.48M", change: "↑ 18.6%", trend: "up" },
-    avgSize: { value: "103.3K", change: "↑ 7.4%", trend: "up" },
-    avgRetention: { value: "28.7%", change: "↑ 5.3%", trend: "up" },
-    revenue: { value: "₹428.3 Cr", change: "↑ 12.8%", trend: "up" },
+    totalUsers: { value: isSimulating ? `${(2.48 + buyersTodayOffset / 1000000).toFixed(4)}M` : "2.48M", change: "↑ 18.6%", trend: "up" },
+    avgSize: { value: isSimulating ? `${((2480000 + buyersTodayOffset) / 24 / 1000).toFixed(1)}K` : "103.3K", change: "↑ 7.4%", trend: "up" },
+    avgRetention: { value: isSimulating ? `${(28.7 + Math.sin(buyersTodayOffset / 2000) * 0.5).toFixed(1)}%` : "28.7%", change: "↑ 5.3%", trend: "up" },
+    revenue: { value: isSimulating ? `₹${(428.3 + gmvTodayOffset / 10000000).toFixed(4)} Cr` : "₹428.3 Cr", change: "↑ 12.8%", trend: "up" },
     healthyCohorts: { value: "11", change: "↑ 22%", trend: "up" }
   };
 
   // Matrix Heatmap Rows
-  const matrixData = [
-    { name: "May 06 - May 12", size: "128K", rates: [100, 46, 33, 25, 19, 12, 8, 5, 3, 2, 1] },
-    { name: "May 13 - May 19", size: "122K", rates: [100, 44, 31, 24, 18, 11, 7, 5, 3, 2, 1] },
-    { name: "May 20 - May 26", size: "134K", rates: [100, 42, 30, 23, 17, 10, 7, 4, 3, 2, 1] },
-    { name: "May 27 - Jun 02", size: "140K", rates: [100, 41, 29, 22, 17, 10, 6, 4, 2, 1, 1] },
-    { name: "Jun 03 - Jun 09", size: "146K", rates: [100, 42, 30, 23, 17, 11, 7, 5, 3, 2, 1] },
-    { name: "Jun 10 - Jun 16", size: "152K", rates: [100, 40, 29, 21, 15, 9, 6, 4, 2, 1, 1] }
+  const baseMatrixData = [
+    { name: "May 06 - May 12", size: 128, rates: [100, 46, 33, 25, 19, 12, 8, 5, 3, 2, 1] },
+    { name: "May 13 - May 19", size: 122, rates: [100, 44, 31, 24, 18, 11, 7, 5, 3, 2, 1] },
+    { name: "May 20 - May 26", size: 134, rates: [100, 42, 30, 23, 17, 10, 7, 4, 3, 2, 1] },
+    { name: "May 27 - Jun 02", size: 140, rates: [100, 41, 29, 22, 17, 10, 6, 4, 2, 1, 1] },
+    { name: "Jun 03 - Jun 09", size: 146, rates: [100, 42, 30, 23, 17, 11, 7, 5, 3, 2, 1] },
+    { name: "Jun 10 - Jun 16", size: 152, rates: [100, 40, 29, 21, 15, 9, 6, 4, 2, 1, 1] }
   ];
+
+  const matrixData = baseMatrixData.map(m => ({
+    name: m.name,
+    size: isSimulating ? `${(m.size + buyersTodayOffset * (m.size / 24) / 1000).toFixed(1)}K` : `${m.size}K`,
+    rates: m.rates.map((r, i) => getDynamicRate(r, i, m.name))
+  }));
 
   // Decay line curve data
   const curveData = [
     { name: "Wk 0", current: 100, previous: 100, quarter: 100 },
-    { name: "Wk 2", current: 33.0, previous: 29.5, quarter: 27.2 },
-    { name: "Wk 4", current: 19.0, previous: 16.2, quarter: 14.5 },
-    { name: "Wk 8", current: 8.0, previous: 6.8, quarter: 5.5 },
-    { name: "Wk 12", current: 5.0, previous: 4.1, quarter: 3.2 },
-    { name: "Wk 24", current: 1.0, previous: 0.8, quarter: 0.5 }
+    { name: "Wk 2", current: isSimulating ? parseFloat((33.0 + Math.sin(buyersTodayOffset / 1000) * 0.5).toFixed(1)) : 33.0, previous: 29.5, quarter: 27.2 },
+    { name: "Wk 4", current: isSimulating ? parseFloat((19.0 + Math.cos(buyersTodayOffset / 1200) * 0.4).toFixed(1)) : 19.0, previous: 16.2, quarter: 14.5 },
+    { name: "Wk 8", current: isSimulating ? parseFloat((8.0 + Math.sin(buyersTodayOffset / 1400) * 0.2).toFixed(1)) : 8.0, previous: 6.8, quarter: 5.5 },
+    { name: "Wk 12", current: isSimulating ? parseFloat((5.0 + Math.cos(buyersTodayOffset / 1600) * 0.15).toFixed(1)) : 5.0, previous: 4.1, quarter: 3.2 },
+    { name: "Wk 24", current: isSimulating ? parseFloat((1.0 + Math.sin(buyersTodayOffset / 1800) * 0.05).toFixed(1)) : 1.0, previous: 0.8, quarter: 0.5 }
   ];
 
   // Row 4: Performance Summary
-  const performanceData = [
-    { cohort: "May 06 - May 12", users: "128K", w1: "46%", w4: "19%", w12: "8%", revenue: "₹24.3 Cr", orders: "2.8" },
-    { cohort: "May 13 - May 19", users: "122K", w1: "44%", w4: "18%", w12: "7%", revenue: "₹22.1 Cr", orders: "2.6" },
-    { cohort: "May 20 - May 26", users: "134K", w1: "42%", w4: "17%", w12: "7%", revenue: "₹25.4 Cr", orders: "2.4" },
-    { cohort: "May 27 - Jun 02", users: "140K", w1: "41%", w4: "16%", w12: "6%", revenue: "₹23.9 Cr", orders: "2.3" },
-    { cohort: "Jun 03 - Jun 09", users: "145K", w1: "42%", w4: "17%", w12: "7%", revenue: "₹27.2 Cr", orders: "2.5" },
-    { cohort: "Jun 10 - Jun 16", users: "152K", w1: "40%", w4: "15%", w12: "6%", revenue: "₹29.4 Cr", orders: "2.2" }
+  const basePerformanceData = [
+    { cohort: "May 06 - May 12", users: 128, w1: 46, w4: 19, w12: 8, revenue: 24.3, orders: 2.8 },
+    { cohort: "May 13 - May 19", users: 122, w1: 44, w4: 18, w12: 7, revenue: 22.1, orders: 2.6 },
+    { cohort: "May 20 - May 26", users: 134, w1: 42, w4: 17, w12: 7, revenue: 25.4, orders: 2.4 },
+    { cohort: "May 27 - Jun 02", users: 140, w1: 41, w4: 16, w12: 6, revenue: 23.9, orders: 2.3 },
+    { cohort: "Jun 03 - Jun 09", users: 145, w1: 42, w4: 17, w12: 7, revenue: 27.2, orders: 2.5 },
+    { cohort: "Jun 10 - Jun 16", users: 152, w1: 40, w4: 15, w12: 6, revenue: 29.4, orders: 2.2 }
   ];
 
+  const performanceData = basePerformanceData.map(p => {
+    const scale = isSimulating ? 1 + (buyersTodayOffset / 100000000) : 1;
+    const w1Dyn = isSimulating ? p.w1 + Math.sin(buyersTodayOffset / 600 + p.w1) * 0.5 : p.w1;
+    const w4Dyn = isSimulating ? p.w4 + Math.cos(buyersTodayOffset / 800 + p.w4) * 0.4 : p.w4;
+    const w12Dyn = isSimulating ? p.w12 + Math.sin(buyersTodayOffset / 1000 + p.w12) * 0.15 : p.w12;
+    const revDyn = isSimulating ? p.revenue + gmvTodayOffset * (p.revenue / 428.3) / 10000000 : p.revenue;
+    return {
+      cohort: p.cohort,
+      users: `${(p.users * scale).toFixed(1)}K`,
+      w1: `${w1Dyn.toFixed(0)}%`,
+      w4: `${w4Dyn.toFixed(0)}%`,
+      w12: `${w12Dyn.toFixed(0)}%`,
+      revenue: `₹${revDyn.toFixed(2)} Cr`,
+      orders: p.orders
+    };
+  });
+
   // Row 4: Segments
-  const segmentData = [
-    { name: "Premium Members", users: "420K", w1: "62%", w4: "32%", w12: "10%", w24: "2%", trend: "up" },
-    { name: "Frequent Buyers", users: "610K", w1: "55%", w4: "28%", w12: "9%", w24: "2%", trend: "up" },
-    { name: "Electronics Buyers", users: "380K", w1: "48%", w4: "24%", w12: "8%", w24: "2%", trend: "neutral" },
-    { name: "New Users", users: "300K", w1: "32%", w4: "13%", w12: "4%", w24: "1%", trend: "down" }
+  const baseSegmentData = [
+    { name: "Premium Members", users: 420, w1: 62, w4: 32, w12: 10, w24: 2, trend: "up" },
+    { name: "Frequent Buyers", users: 610, w1: 55, w4: 28, w12: 9, w24: 2, trend: "up" },
+    { name: "Electronics Buyers", users: 380, w1: 48, w4: 24, w12: 8, w24: 2, trend: "neutral" },
+    { name: "New Users", users: 300, w1: 32, w4: 13, w12: 4, w24: 1, trend: "down" }
   ];
+
+  const segmentData = baseSegmentData.map(s => {
+    const scale = isSimulating ? 1 + (buyersTodayOffset / 100000000) : 1;
+    const w1Dyn = isSimulating ? s.w1 + Math.sin(buyersTodayOffset / 500 + s.w1) * 0.5 : s.w1;
+    const w4Dyn = isSimulating ? s.w4 + Math.cos(buyersTodayOffset / 700 + s.w4) * 0.4 : s.w4;
+    const w12Dyn = isSimulating ? s.w12 + Math.sin(buyersTodayOffset / 900 + s.w12) * 0.15 : s.w12;
+    const w24Dyn = isSimulating ? s.w24 + Math.cos(buyersTodayOffset / 1100 + s.w24) * 0.05 : s.w24;
+    return {
+      name: s.name,
+      users: `${Math.round(s.users * scale)}K`,
+      w1: `${w1Dyn.toFixed(0)}%`,
+      w4: `${w4Dyn.toFixed(0)}%`,
+      w12: `${w12Dyn.toFixed(0)}%`,
+      w24: `${w24Dyn.toFixed(0)}%`,
+      trend: s.trend
+    };
+  });
 
   // Row 4: Drivers
   const driversData = [
@@ -173,17 +223,33 @@ export default function CohortsTab() {
   };
 
   const handleCellClick = (cohortName: string, size: string, rate: number, weekIdx: number) => {
-    setSelectedCohortDrawer({
-      cohortName,
-      usersSize: size,
-      activeUsers: `${(parseFloat(size) * (rate / 100)).toFixed(1)}K`,
-      wk1: "46%",
-      wk4: "19%",
-      wk12: "8%",
-      revenue: `₹${(24.3 + weekIdx * 0.8).toFixed(1)} Cr`,
-      orders: Math.round(rate * 0.1) || 1
-    });
+    setSelectedCohortIndex({ cohortName, usersSize: size, rate, weekIdx });
   };
+
+  const selectedCohortDrawer = (() => {
+    if (!selectedCohortIndex) return null;
+    const { cohortName, usersSize, rate, weekIdx } = selectedCohortIndex;
+    
+    // Resolve dynamic rate
+    const baseRow = baseMatrixData.find(b => b.name === cohortName);
+    const baseRate = baseRow ? baseRow.rates[weekIdx] : rate;
+    const dynamicRate = getDynamicRate(baseRate, weekIdx, cohortName);
+    
+    // Size formatting
+    const sizeVal = parseFloat(usersSize);
+    const dynamicSize = isSimulating ? sizeVal + buyersTodayOffset * (sizeVal / 24) / 1000 : sizeVal;
+
+    return {
+      cohortName,
+      usersSize: `${dynamicSize.toFixed(1)}K`,
+      activeUsers: `${(dynamicSize * (dynamicRate / 100)).toFixed(1)}K`,
+      wk1: `${getDynamicRate(baseRow ? baseRow.rates[1] : 46, 1, cohortName).toFixed(0)}%`,
+      wk4: `${getDynamicRate(baseRow ? baseRow.rates[4] : 19, 4, cohortName).toFixed(0)}%`,
+      wk12: `${getDynamicRate(baseRow ? baseRow.rates[10] : 8, 10, cohortName).toFixed(0)}%`,
+      revenue: `₹${(24.3 + weekIdx * 0.8 + gmvTodayOffset / 100000000).toFixed(1)} Cr`,
+      orders: Math.round(dynamicRate * 0.1) || 1
+    };
+  })();
 
   return (
     <div className="space-y-6 pb-12 select-none relative">
@@ -838,7 +904,7 @@ export default function CohortsTab() {
       {/* ================= COHORT CELLS DRILLDOWN DRAWER VIEW ================= */}
       {selectedCohortDrawer && (
         <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex justify-end">
-          <div className="absolute inset-0 cursor-pointer" onClick={() => setSelectedCohortDrawer(null)} />
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setSelectedCohortIndex(null)} />
           
           <div className="relative w-full max-w-md bg-slate-950 border-l border-border-subtle h-full p-6 shadow-2xl flex flex-col gap-6 overflow-y-auto animate-slide-left">
             
@@ -849,7 +915,7 @@ export default function CohortsTab() {
                 <h4 className="text-md font-black text-text-bright tracking-tight mt-1">{selectedCohortDrawer.cohortName}</h4>
               </div>
               <button 
-                onClick={() => setSelectedCohortDrawer(null)}
+                onClick={() => setSelectedCohortIndex(null)}
                 className="p-1 rounded bg-slate-900 border border-border-subtle text-text-muted hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -892,7 +958,7 @@ export default function CohortsTab() {
                 <button 
                   onClick={() => {
                     triggerToast(`Segment cohort created for ${selectedCohortDrawer.cohortName}.`);
-                    setSelectedCohortDrawer(null);
+                    setSelectedCohortIndex(null);
                   }}
                   className="py-2 bg-slate-900 border border-border-subtle hover:border-slate-800 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
                 >
@@ -901,7 +967,7 @@ export default function CohortsTab() {
                 <button 
                   onClick={() => {
                     triggerToast(`Triggering campaign scheduler for ${selectedCohortDrawer.cohortName} cohort.`);
-                    setSelectedCohortDrawer(null);
+                    setSelectedCohortIndex(null);
                   }}
                   className="py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
                 >
@@ -912,7 +978,7 @@ export default function CohortsTab() {
                 <button 
                   onClick={() => {
                     triggerToast(`Exporting users list from ${selectedCohortDrawer.cohortName} cohort.`);
-                    setSelectedCohortDrawer(null);
+                    setSelectedCohortIndex(null);
                   }}
                   className="py-2 bg-slate-900/40 border border-border-subtle text-text-muted hover:text-white rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                 >
@@ -921,7 +987,7 @@ export default function CohortsTab() {
                 <button 
                   onClick={() => {
                     triggerToast(`Reconstructing user journeys for ${selectedCohortDrawer.cohortName}.`);
-                    setSelectedCohortDrawer(null);
+                    setSelectedCohortIndex(null);
                   }}
                   className="py-2 bg-slate-900/40 border border-border-subtle text-text-muted hover:text-white rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                 >
@@ -930,7 +996,7 @@ export default function CohortsTab() {
                 <button 
                   onClick={() => {
                     triggerToast(`User directory filtered by ${selectedCohortDrawer.cohortName}.`);
-                    setSelectedCohortDrawer(null);
+                    setSelectedCohortIndex(null);
                   }}
                   className="py-2 bg-slate-900/40 border border-border-subtle text-text-muted hover:text-white rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                 >

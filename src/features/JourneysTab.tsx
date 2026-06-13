@@ -38,6 +38,7 @@ import {
   ResponsiveContainer,
   Legend 
 } from "recharts";
+import { useSimulation } from "@/context/SimulationContext";
 
 // TypeScript interfaces
 interface JourneyNodeData {
@@ -67,6 +68,7 @@ interface JourneyPathRow {
 }
 
 export default function JourneysTab() {
+  const { isSimulating, buyersTodayOffset, gmvTodayOffset } = useSimulation();
   // Query Filters States
   const [journeyType, setJourneyType] = useState("Purchase Journey");
   const [startEvent, setStartEvent] = useState("App Opened");
@@ -105,7 +107,7 @@ export default function JourneysTab() {
   };
 
   // 8 Horizontally Structured Nodes
-  const journeyNodes: JourneyNodeData[] = [
+  const baseJourneyNodes: JourneyNodeData[] = [
     { name: "App Opened", users: "149.2M", usersVal: 149200000, conversion: "100%", avgTime: "---", revenue: "₹428.3Cr", stepIndex: 1 },
     { name: "Home Page", users: "98.7M", usersVal: 98700000, conversion: "66.2%", avgTime: "8s", revenue: "₹428.3Cr", stepIndex: 2 },
     { name: "Search", users: "61.3M", usersVal: 61300000, conversion: "62.1%", avgTime: "45s", revenue: "₹380.0Cr", stepIndex: 3 },
@@ -116,35 +118,98 @@ export default function JourneysTab() {
     { name: "Order Completed", users: "6.48M", usersVal: 6480000, conversion: "100%", avgTime: "12s", revenue: "₹128.6Cr", stepIndex: 8 }
   ];
 
+  const journeyNodes: JourneyNodeData[] = baseJourneyNodes.map((item, idx) => {
+    if (!isSimulating) return item;
+    const multiplier = item.usersVal / 149200000;
+    const dynamicUsersVal = Math.round(item.usersVal + buyersTodayOffset * 23 * multiplier);
+    
+    const formattedUsers = dynamicUsersVal >= 1000000 
+      ? `${(dynamicUsersVal / 1000000).toFixed(2)}M` 
+      : `${(dynamicUsersVal / 1000).toFixed(1)}K`;
+
+    let dynamicConv = item.conversion;
+    if (idx > 0) {
+      const prevNodeUsers = baseJourneyNodes[idx - 1].usersVal + buyersTodayOffset * 23 * (baseJourneyNodes[idx - 1].usersVal / 149200000);
+      dynamicConv = `${((dynamicUsersVal / prevNodeUsers) * 100).toFixed(1)}%`;
+    }
+
+    const baseRevMatch = item.revenue.match(/₹([\d.]+)Cr/);
+    let dynamicRevenue = item.revenue;
+    if (baseRevMatch) {
+      const baseRev = parseFloat(baseRevMatch[1]);
+      dynamicRevenue = `₹${(baseRev + gmvTodayOffset / 100000000 * multiplier).toFixed(1)}Cr`;
+    }
+
+    return {
+      ...item,
+      users: formattedUsers,
+      usersVal: dynamicUsersVal,
+      conversion: dynamicConv,
+      revenue: dynamicRevenue
+    };
+  });
+
+  const activeSelectedNode = selectedNode ? (journeyNodes.find(n => n.name === selectedNode.name) || selectedNode) : null;
+
   // Drop-off analysis dataset
   const dropoffData: DropoffRow[] = [
-    { step: "Home Page → Search", dropped: "37.4M", rate: "37.9%", impact: "₹120.3 Cr", severity: "Critical" },
-    { step: "Search → Product View", dropped: "37.3M", rate: "61.0%", impact: "₹98.6 Cr", severity: "Critical" },
-    { step: "Product View → Add to Cart", dropped: "14.6M", rate: "61.1%", impact: "₹48.7 Cr", severity: "High" },
-    { step: "Add to Cart → Checkout", dropped: "2.5M", rate: "26.9%", impact: "₹18.9 Cr", severity: "Medium" },
-    { step: "Checkout → Payment", dropped: "320K", rate: "4.7%", impact: "₹3.2 Cr", severity: "Low" }
+    { 
+      step: "Home Page → Search", 
+      dropped: isSimulating ? `${((journeyNodes[1].usersVal - journeyNodes[2].usersVal) / 1000000).toFixed(2)}M` : "37.4M", 
+      rate: isSimulating ? `${(((journeyNodes[1].usersVal - journeyNodes[2].usersVal) / journeyNodes[1].usersVal) * 100).toFixed(1)}%` : "37.9%", 
+      impact: isSimulating ? `₹${(120.3 + gmvTodayOffset / 200000000).toFixed(1)} Cr` : "₹120.3 Cr", 
+      severity: "Critical" 
+    },
+    { 
+      step: "Search → Product View", 
+      dropped: isSimulating ? `${((journeyNodes[2].usersVal - journeyNodes[3].usersVal) / 1000000).toFixed(2)}M` : "37.3M", 
+      rate: isSimulating ? `${(((journeyNodes[2].usersVal - journeyNodes[3].usersVal) / journeyNodes[2].usersVal) * 100).toFixed(1)}%` : "61.0%", 
+      impact: isSimulating ? `₹${(98.6 + gmvTodayOffset / 250000000).toFixed(1)} Cr` : "₹98.6 Cr", 
+      severity: "Critical" 
+    },
+    { 
+      step: "Product View → Add to Cart", 
+      dropped: isSimulating ? `${((journeyNodes[3].usersVal - journeyNodes[4].usersVal) / 1000000).toFixed(2)}M` : "14.6M", 
+      rate: isSimulating ? `${(((journeyNodes[3].usersVal - journeyNodes[4].usersVal) / journeyNodes[3].usersVal) * 100).toFixed(1)}%` : "61.1%", 
+      impact: isSimulating ? `₹${(48.7 + gmvTodayOffset / 400000000).toFixed(1)} Cr` : "₹48.7 Cr", 
+      severity: "High" 
+    },
+    { 
+      step: "Add to Cart → Checkout", 
+      dropped: isSimulating ? `${((journeyNodes[4].usersVal - journeyNodes[5].usersVal) / 1000000).toFixed(2)}M` : "2.5M", 
+      rate: isSimulating ? `${(((journeyNodes[4].usersVal - journeyNodes[5].usersVal) / journeyNodes[4].usersVal) * 100).toFixed(1)}%` : "26.9%", 
+      impact: isSimulating ? `₹${(18.9 + gmvTodayOffset / 800000000).toFixed(1)} Cr` : "₹18.9 Cr", 
+      severity: "Medium" 
+    },
+    { 
+      step: "Checkout → Payment", 
+      dropped: isSimulating ? `${((journeyNodes[5].usersVal - journeyNodes[6].usersVal) / 1000).toFixed(0)}K` : "320K", 
+      rate: isSimulating ? `${(((journeyNodes[5].usersVal - journeyNodes[6].usersVal) / journeyNodes[5].usersVal) * 100).toFixed(1)}%` : "4.7%", 
+      impact: isSimulating ? `₹${(3.2 + gmvTodayOffset / 2000000000).toFixed(1)} Cr` : "₹3.2 Cr", 
+      severity: "Low" 
+    }
   ];
 
   // Journey paths performance details
   const pathPerformanceData: JourneyPathRow[] = [
-    { pathName: "Path 1 (Most Common)", users: "89.6M", conversion: "3.92%", revenue: "₹312.4 Cr", avgTime: "11m 24s" },
-    { pathName: "Path 2", users: "42.3M", conversion: "4.58%", revenue: "₹89.6 Cr", avgTime: "15m 18s" },
-    { pathName: "Path 3", users: "17.1M", conversion: "2.84%", revenue: "₹26.3 Cr", avgTime: "16m 07s" }
+    { pathName: "Path 1 (Most Common)", users: isSimulating ? `${((89.6 * 1000000 + buyersTodayOffset * 15) / 1000000).toFixed(2)}M` : "89.6M", conversion: isSimulating ? `${(3.92 + Math.sin(buyersTodayOffset / 1200) * 0.05).toFixed(2)}%` : "3.92%", revenue: isSimulating ? `₹${(312.4 + gmvTodayOffset / 12000000).toFixed(1)} Cr` : "₹312.4 Cr", avgTime: "11m 24s" },
+    { pathName: "Path 2", users: isSimulating ? `${((42.3 * 1000000 + buyersTodayOffset * 7) / 1000000).toFixed(2)}M` : "42.3M", conversion: isSimulating ? `${(4.58 + Math.cos(buyersTodayOffset / 1500) * 0.06).toFixed(2)}%` : "4.58%", revenue: isSimulating ? `₹${(89.6 + gmvTodayOffset / 30000000).toFixed(1)} Cr` : "₹89.6 Cr", avgTime: "15m 18s" },
+    { pathName: "Path 3", users: isSimulating ? `${((17.1 * 1000000 + buyersTodayOffset * 3) / 1000000).toFixed(2)}M` : "17.1M", conversion: isSimulating ? `${(2.84 + Math.sin(buyersTodayOffset / 1800) * 0.04).toFixed(2)}%` : "2.84%", revenue: isSimulating ? `₹${(26.3 + gmvTodayOffset / 100000000).toFixed(1)} Cr` : "₹26.3 Cr", avgTime: "16m 07s" }
   ];
 
   // Top Paths bullet sequences
   const topPathsBullets = [
-    { rank: 1, seq: "Home → Search → Product → Cart → Checkout → Payment → Order", pct: "60.2%", vol: "89.6M" },
-    { rank: 2, seq: "Home → Category → Product → Cart → Checkout → Payment → Order", pct: "28.4%", vol: "42.3M" },
-    { rank: 3, seq: "Home → Search → Product → Buy Now → Payment → Order", pct: "11.4%", vol: "17.1M" }
+    { rank: 1, seq: "Home → Search → Product → Cart → Checkout → Payment → Order", pct: "60.2%", vol: isSimulating ? `${((89.6 * 1000000 + buyersTodayOffset * 15) / 1000000).toFixed(2)}M` : "89.6M" },
+    { rank: 2, seq: "Home → Category → Product → Cart → Checkout → Payment → Order", pct: "28.4%", vol: isSimulating ? `${((42.3 * 1000000 + buyersTodayOffset * 7) / 1000000).toFixed(2)}M` : "42.3M" },
+    { rank: 3, seq: "Home → Search → Product → Buy Now → Payment → Order", pct: "11.4%", vol: isSimulating ? `${((17.1 * 1000000 + buyersTodayOffset * 3) / 1000000).toFixed(2)}M` : "17.1M" }
   ];
 
   // User segments in journey
   const segmentsInJourney = [
-    { name: "Premium Users", users: "24.8M", conversion: "7.82%", revenue: "₹182.4 Cr", duration: "10m 12s", trend: "up", color: "text-emerald-400" },
-    { name: "Frequent Buyers", users: "31.2M", conversion: "6.13%", revenue: "₹128.6 Cr", duration: "9m 45s", trend: "up", color: "text-emerald-400" },
-    { name: "New Users", users: "38.6M", conversion: "2.34%", revenue: "₹58.3 Cr", duration: "14m 23s", trend: "up", color: "text-emerald-400" },
-    { name: "Deal Seekers", users: "26.9M", conversion: "1.92%", revenue: "₹32.6 Cr", duration: "15m 32s", trend: "down", color: "text-red-400" }
+    { name: "Premium Users", users: isSimulating ? `${((24.8 * 1000000 + buyersTodayOffset * 4) / 1000000).toFixed(2)}M` : "24.8M", conversion: isSimulating ? `${(7.82 + Math.sin(buyersTodayOffset / 1000) * 0.08).toFixed(2)}%` : "7.82%", revenue: isSimulating ? `₹${(182.4 + gmvTodayOffset / 20000000).toFixed(1)} Cr` : "₹182.4 Cr", duration: "10m 12s", trend: "up", color: "text-emerald-400" },
+    { name: "Frequent Buyers", users: isSimulating ? `${((31.2 * 1000000 + buyersTodayOffset * 5) / 1000000).toFixed(2)}M` : "31.2M", conversion: isSimulating ? `${(6.13 + Math.cos(buyersTodayOffset / 1300) * 0.06).toFixed(2)}%` : "6.13%", revenue: isSimulating ? `₹${(128.6 + gmvTodayOffset / 30000000).toFixed(1)} Cr` : "₹128.6 Cr", duration: "9m 45s", trend: "up", color: "text-emerald-400" },
+    { name: "New Users", users: isSimulating ? `${((38.6 * 1000000 + buyersTodayOffset * 6) / 1000000).toFixed(2)}M` : "38.6M", conversion: isSimulating ? `${(2.34 + Math.sin(buyersTodayOffset / 1600) * 0.03).toFixed(2)}%` : "2.34%", revenue: isSimulating ? `₹${(58.3 + gmvTodayOffset / 50000000).toFixed(1)} Cr` : "₹58.3 Cr", duration: "14m 23s", trend: "up", color: "text-emerald-400" },
+    { name: "Deal Seekers", users: isSimulating ? `${((26.9 * 1000000 + buyersTodayOffset * 4) / 1000000).toFixed(2)}M` : "26.9M", conversion: isSimulating ? `${(1.92 + Math.cos(buyersTodayOffset / 2000) * 0.02).toFixed(2)}%` : "1.92%", revenue: isSimulating ? `₹${(32.6 + gmvTodayOffset / 80000000).toFixed(1)} Cr` : "₹32.6 Cr", duration: "15m 32s", trend: "down", color: "text-red-400" }
   ];
 
   // AI Journey smart diagnostics
@@ -175,7 +240,7 @@ export default function JourneysTab() {
     { date: "20 May", AppOpened: 134, AddToCart: 26, Checkout: 18, OrderCompleted: 16.8 },
     { date: "27 May", AppOpened: 140, AddToCart: 25, Checkout: 17, OrderCompleted: 16.0 },
     { date: "3 Jun", AppOpened: 138, AddToCart: 29, Checkout: 20, OrderCompleted: 18.5 },
-    { date: "10 Jun", AppOpened: 149.2, AddToCart: 31, Checkout: 21, OrderCompleted: 19.8 }
+    { date: "10 Jun", AppOpened: isSimulating ? parseFloat((149.2 + buyersTodayOffset * 23 / 1000000).toFixed(1)) : 149.2, AddToCart: isSimulating ? parseFloat((31 + buyersTodayOffset * 1.4 / 1000000).toFixed(1)) : 31, Checkout: isSimulating ? parseFloat((21 + buyersTodayOffset / 1000000).toFixed(1)) : 21, OrderCompleted: isSimulating ? parseFloat((19.8 + buyersTodayOffset / 1000000).toFixed(1)) : 19.8 }
   ];
 
   // Comparison metrics calculations
@@ -1194,7 +1259,7 @@ export default function JourneysTab() {
       </div>
 
       {/* Dynamic Popover/Overlay showing Step details when node is selected */}
-      {selectedNode && (
+      {activeSelectedNode && (
         <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
           {/* Backdrop overlay */}
           <div 
@@ -1211,7 +1276,7 @@ export default function JourneysTab() {
                     <GitFork className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-text-bright">Step {selectedNode.stepIndex}: {selectedNode.name}</h3>
+                    <h3 className="text-base font-bold text-text-bright">Step {activeSelectedNode.stepIndex}: {activeSelectedNode.name}</h3>
                     <span className="text-[8px] bg-slate-950 border border-slate-800 px-1.5 py-0.5 rounded text-text-muted font-bold uppercase">Node analytics</span>
                   </div>
                 </div>
@@ -1227,19 +1292,19 @@ export default function JourneysTab() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg text-left">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Step Traffic</span>
-                  <div className="text-base font-bold text-text-bright mt-0.5">{selectedNode.users}</div>
+                  <div className="text-base font-bold text-text-bright mt-0.5">{activeSelectedNode.users}</div>
                 </div>
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg text-left">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Step Conversion</span>
-                  <div className="text-base font-bold text-emerald-400 mt-0.5">{selectedNode.conversion}</div>
+                  <div className="text-base font-bold text-emerald-400 mt-0.5">{activeSelectedNode.conversion}</div>
                 </div>
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg text-left">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Median Duration</span>
-                  <div className="text-base font-bold text-text-bright mt-0.5">{selectedNode.avgTime}</div>
+                  <div className="text-base font-bold text-text-bright mt-0.5">{activeSelectedNode.avgTime}</div>
                 </div>
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg text-left">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Influenced GMV</span>
-                  <div className="text-base font-bold text-text-bright mt-0.5">{selectedNode.revenue}</div>
+                  <div className="text-base font-bold text-text-bright mt-0.5">{activeSelectedNode.revenue}</div>
                 </div>
               </div>
 
@@ -1268,7 +1333,7 @@ export default function JourneysTab() {
               <button 
                 onClick={() => {
                   setSelectedNode(null);
-                  triggerToast(`Alert configured for ${selectedNode.name} drop-off rate.`);
+                  triggerToast(`Alert configured for ${activeSelectedNode.name} drop-off rate.`);
                 }}
                 className="flex-1 bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
@@ -1278,7 +1343,7 @@ export default function JourneysTab() {
               <button 
                 onClick={() => {
                   setSelectedNode(null);
-                  triggerToast(`Users list sync initiated for step: ${selectedNode.name}`);
+                  triggerToast(`Users list sync initiated for step: ${activeSelectedNode.name}`);
                 }}
                 className="flex-1 bg-transparent hover:bg-slate-800 text-text-bright border border-slate-800 text-xs font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >

@@ -44,6 +44,7 @@ import {
   ResponsiveContainer,
   Legend 
 } from "recharts";
+import { useSimulation } from "@/context/SimulationContext";
 
 // TypeScript interfaces
 interface SegmentDataRow {
@@ -70,6 +71,7 @@ interface FilterCondition {
 }
 
 export default function SegmentationTab() {
+  const { isSimulating, totalSimulatedEvents, buyersTodayOffset, gmvTodayOffset } = useSimulation();
   // Query Builder states
   const [selectedEvent, setSelectedEvent] = useState("page_view");
   const [segmentProperty, setSegmentProperty] = useState("Device Type");
@@ -117,7 +119,7 @@ export default function SegmentationTab() {
   };
 
   // Base Segment Dataset matching mockup
-  const segmentDataset: SegmentDataRow[] = [
+  const baseSegmentDataset: SegmentDataRow[] = [
     { 
       name: "Mobile", 
       events: "107.6M", eventsVal: 107600000,
@@ -192,12 +194,65 @@ export default function SegmentationTab() {
     }
   ];
 
+  const segmentDataset: SegmentDataRow[] = baseSegmentDataset.map((item, idx) => {
+    if (!isSimulating) return item;
+    const dynamicEventsVal = Math.round(item.eventsVal + totalSimulatedEvents * (item.pctEvents / 100));
+    const dynamicUsersVal = Math.round(item.usersVal + buyersTodayOffset * (item.pctEvents / 100));
+    const dynamicEventsPerUser = dynamicUsersVal > 0 ? parseFloat((dynamicEventsVal / dynamicUsersVal).toFixed(2)) : 0;
+    
+    const scale = dynamicUsersVal / item.usersVal;
+    const baseRevMatch = item.revenue.match(/₹([\d.]+)Cr/);
+    let dynamicRevenue = item.revenue;
+    if (baseRevMatch) {
+      const baseRevNum = parseFloat(baseRevMatch[1]);
+      dynamicRevenue = `₹${(baseRevNum * scale).toFixed(1)}Cr`;
+    }
+    
+    const baseConvMatch = item.conversion.match(/([\d.]+)%/);
+    let dynamicConversion = item.conversion;
+    if (baseConvMatch) {
+      const baseConv = parseFloat(baseConvMatch[1]);
+      const convWiggle = Math.sin(buyersTodayOffset / 1000 + idx) * 0.15;
+      dynamicConversion = `${(baseConv + convWiggle).toFixed(2)}%`;
+    }
+    
+    const baseBounceMatch = item.bounceRate.match(/([\d.]+)%/);
+    let dynamicBounce = item.bounceRate;
+    if (baseBounceMatch) {
+      const baseBounce = parseFloat(baseBounceMatch[1]);
+      const bounceWiggle = Math.cos(buyersTodayOffset / 1200 + idx) * 0.2;
+      dynamicBounce = `${(baseBounce + bounceWiggle).toFixed(2)}%`;
+    }
+
+    const formattedEvents = dynamicEventsVal >= 1000000 
+      ? `${(dynamicEventsVal / 1000000).toFixed(2)}M` 
+      : `${(dynamicEventsVal / 1000).toFixed(1)}K`;
+
+    const formattedUsers = dynamicUsersVal >= 1000000
+      ? `${(dynamicUsersVal / 1000000).toFixed(2)}M`
+      : `${(dynamicUsersVal / 1000).toFixed(1)}K`;
+
+    return {
+      ...item,
+      events: formattedEvents,
+      eventsVal: dynamicEventsVal,
+      users: formattedUsers,
+      usersVal: dynamicUsersVal,
+      eventsPerUser: dynamicEventsPerUser,
+      bounceRate: dynamicBounce,
+      conversion: dynamicConversion,
+      revenue: dynamicRevenue
+    };
+  });
+
+  const activeSelectedSegment = selectedSegment ? (segmentDataset.find(s => s.name === selectedSegment.name) || selectedSegment) : null;
+
   // Donut chart representation
   const distributionDonutData = [
-    { name: "Mobile", value: 72.3, count: "107.6M", color: "#10B981" },
-    { name: "Desktop", value: 15.7, count: "23.4M", color: "#3B82F6" },
-    { name: "Tablet", value: 6.9, count: "10.2M", color: "#8B5CF6" },
-    { name: "Others", value: 5.1, count: "7.5M", color: "#F59E0B" }
+    { name: "Mobile", value: parseFloat((((segmentDataset.find(s => s.name === "Mobile")?.eventsVal || 1) / (segmentDataset.reduce((acc, curr) => acc + curr.eventsVal, 0) || 1)) * 100).toFixed(1)), count: segmentDataset.find(s => s.name === "Mobile")?.events || "107.6M", color: "#10B981" },
+    { name: "Desktop", value: parseFloat((((segmentDataset.find(s => s.name === "Desktop")?.eventsVal || 1) / (segmentDataset.reduce((acc, curr) => acc + curr.eventsVal, 0) || 1)) * 100).toFixed(1)), count: segmentDataset.find(s => s.name === "Desktop")?.events || "23.4M", color: "#3B82F6" },
+    { name: "Tablet", value: parseFloat((((segmentDataset.find(s => s.name === "Tablet")?.eventsVal || 1) / (segmentDataset.reduce((acc, curr) => acc + curr.eventsVal, 0) || 1)) * 100).toFixed(1)), count: segmentDataset.find(s => s.name === "Tablet")?.events || "10.2M", color: "#8B5CF6" },
+    { name: "Others", value: parseFloat((((segmentDataset.find(s => s.name === "Others")?.eventsVal || 1) / (segmentDataset.reduce((acc, curr) => acc + curr.eventsVal, 0) || 1)) * 100).toFixed(1)), count: segmentDataset.find(s => s.name === "Others")?.events || "7.5M", color: "#F59E0B" }
   ];
 
   // Trends Over Time mapping from May 13 to June 10
@@ -206,30 +261,42 @@ export default function SegmentationTab() {
     { date: "20 May", Mobile: 21.4, Desktop: 4.5, Tablet: 1.9, Others: 1.0 },
     { date: "27 May", Mobile: 23.8, Desktop: 4.9, Tablet: 2.1, Others: 1.2 },
     { date: "3 Jun", Mobile: 22.1, Desktop: 4.7, Tablet: 2.0, Others: 1.1 },
-    { date: "10 Jun", Mobile: 24.6, Desktop: 5.1, Tablet: 2.3, Others: 1.3 }
+    { date: "10 Jun", Mobile: isSimulating ? parseFloat(((segmentDataset.find(s => s.name === "Mobile")?.eventsVal || 107600000) / 5000000).toFixed(1)) : 24.6, Desktop: isSimulating ? parseFloat(((segmentDataset.find(s => s.name === "Desktop")?.eventsVal || 23400000) / 5000000).toFixed(1)) : 5.1, Tablet: isSimulating ? parseFloat(((segmentDataset.find(s => s.name === "Tablet")?.eventsVal || 10200000) / 5000000).toFixed(1)) : 2.3, Others: isSimulating ? parseFloat(((segmentDataset.find(s => s.name === "Others")?.eventsVal || 7500000) / 5000000).toFixed(1)) : 1.3 }
   ];
 
   // Property breakdown horizontal bars options
-  const propertyBreakdownMock: Record<string, { label: string; pct: number; count: string; color: string }[]> = {
-    "Operating System": [
-      { label: "Android", pct: 68.4, count: "73.6M", color: "#10B981" },
-      { label: "iOS", pct: 27.1, count: "29.1M", color: "#EC4899" },
-      { label: "Windows", pct: 3.2, count: "3.5M", color: "#3B82F6" },
-      { label: "Others", pct: 1.3, count: "1.4M", color: "#F59E0B" }
-    ],
-    "Device Type": [
-      { label: "Mobile", pct: 72.3, count: "107.6M", color: "#10B981" },
-      { label: "Desktop", pct: 15.7, count: "23.4M", color: "#3B82F6" },
-      { label: "Tablet", pct: 6.9, count: "10.2M", color: "#8B5CF6" },
-      { label: "Smart TV/Other", pct: 5.1, count: "7.5M", color: "#F59E0B" }
-    ],
-    "Country": [
-      { label: "India", pct: 64.7, count: "96.2M", color: "#10B981" },
-      { label: "USA", pct: 12.4, count: "18.4M", color: "#3B82F6" },
-      { label: "UK", pct: 4.5, count: "6.7M", color: "#8B5CF6" },
-      { label: "Others", pct: 18.4, count: "27.4M", color: "#F59E0B" }
-    ]
-  };
+  const propertyBreakdownMock = (() => {
+    const androidVal = segmentDataset.find(s => s.name === "Android Smartphone")?.eventsVal || 57300000;
+    const iosVal = segmentDataset.find(s => s.name === "iOS Smartphone")?.eventsVal || 40300000;
+    const desktopVal = segmentDataset.find(s => s.name === "Desktop")?.eventsVal || 23400000;
+    const othersVal = segmentDataset.find(s => s.name === "Others")?.eventsVal || 7500000;
+    const totalEvents = androidVal + iosVal + desktopVal + othersVal;
+
+    const formatEventsStr = (val: number) => {
+      return val >= 1000000 ? `${(val / 1000000).toFixed(2)}M` : `${(val / 1000).toFixed(1)}K`;
+    };
+
+    return {
+      "Operating System": [
+        { label: "Android", pct: parseFloat(((androidVal / totalEvents) * 100).toFixed(1)), count: formatEventsStr(androidVal), color: "#10B981" },
+        { label: "iOS", pct: parseFloat(((iosVal / totalEvents) * 100).toFixed(1)), count: formatEventsStr(iosVal), color: "#EC4899" },
+        { label: "Windows/Mac", pct: parseFloat(((desktopVal / totalEvents) * 100).toFixed(1)), count: formatEventsStr(desktopVal), color: "#3B82F6" },
+        { label: "Others", pct: parseFloat(((othersVal / totalEvents) * 100).toFixed(1)), count: formatEventsStr(othersVal), color: "#F59E0B" }
+      ],
+      "Device Type": [
+        { label: "Mobile", pct: parseFloat((((segmentDataset.find(s => s.name === "Mobile")?.eventsVal || 1) / (segmentDataset.reduce((acc, curr) => acc + curr.eventsVal, 0) || 1)) * 100).toFixed(1)), count: segmentDataset.find(s => s.name === "Mobile")?.events || "107.6M", color: "#10B981" },
+        { label: "Desktop", pct: parseFloat((((segmentDataset.find(s => s.name === "Desktop")?.eventsVal || 1) / (segmentDataset.reduce((acc, curr) => acc + curr.eventsVal, 0) || 1)) * 100).toFixed(1)), count: segmentDataset.find(s => s.name === "Desktop")?.events || "23.4M", color: "#3B82F6" },
+        { label: "Tablet", pct: parseFloat((((segmentDataset.find(s => s.name === "Tablet")?.eventsVal || 1) / (segmentDataset.reduce((acc, curr) => acc + curr.eventsVal, 0) || 1)) * 100).toFixed(1)), count: segmentDataset.find(s => s.name === "Tablet")?.events || "10.2M", color: "#8B5CF6" },
+        { label: "Smart TV/Other", pct: parseFloat((((segmentDataset.find(s => s.name === "Others")?.eventsVal || 1) / (segmentDataset.reduce((acc, curr) => acc + curr.eventsVal, 0) || 1)) * 100).toFixed(1)), count: segmentDataset.find(s => s.name === "Others")?.events || "7.5M", color: "#F59E0B" }
+      ],
+      "Country": [
+        { label: "India", pct: 64.7, count: formatEventsStr(Math.round(totalEvents * 0.647)), color: "#10B981" },
+        { label: "USA", pct: 12.4, count: formatEventsStr(Math.round(totalEvents * 0.124)), color: "#3B82F6" },
+        { label: "UK", pct: 4.5, count: formatEventsStr(Math.round(totalEvents * 0.045)), color: "#8B5CF6" },
+        { label: "Others", pct: 18.4, count: formatEventsStr(Math.round(totalEvents * 0.184)), color: "#F59E0B" }
+      ]
+    };
+  })();
 
   // Geographics Split
   const geographySplit = [
@@ -1058,7 +1125,7 @@ export default function SegmentationTab() {
             </div>
 
             <div className="space-y-4">
-              {(propertyBreakdownMock[breakdownProperty] || propertyBreakdownMock["Operating System"]).map((item, idx) => (
+              {(propertyBreakdownMock[breakdownProperty as "Operating System" | "Device Type" | "Country"] || propertyBreakdownMock["Operating System"]).map((item, idx) => (
                 <div key={idx} className="space-y-1 text-xs">
                   <div className="flex justify-between font-semibold">
                     <span className="text-text-bright font-medium">{item.label}</span>
@@ -1292,7 +1359,7 @@ export default function SegmentationTab() {
       </div>
 
       {/* Segment Details Drawer (Slide-out right drawer) */}
-      {selectedSegment && (
+      {activeSelectedSegment && (
         <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
           {/* Backdrop overlay */}
           <div 
@@ -1310,7 +1377,7 @@ export default function SegmentationTab() {
                     <Layers className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-text-bright">{selectedSegment.name} Details</h3>
+                    <h3 className="text-base font-bold text-text-bright">{activeSelectedSegment.name} Details</h3>
                     <span className="text-[9px] bg-slate-950 border border-slate-800 px-1.5 py-0.5 rounded text-text-muted font-bold uppercase">Segment View</span>
                   </div>
                 </div>
@@ -1326,19 +1393,19 @@ export default function SegmentationTab() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg text-left">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Total Events</span>
-                  <div className="text-base font-bold text-text-bright mt-0.5">{selectedSegment.events}</div>
+                  <div className="text-base font-bold text-text-bright mt-0.5">{activeSelectedSegment.events}</div>
                 </div>
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg text-left">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Matching Users</span>
-                  <div className="text-base font-bold text-text-bright mt-0.5">{selectedSegment.users}</div>
+                  <div className="text-base font-bold text-text-bright mt-0.5">{activeSelectedSegment.users}</div>
                 </div>
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg text-left">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Conversion Rate</span>
-                  <div className="text-base font-bold text-emerald-400 mt-0.5">{selectedSegment.conversion}</div>
+                  <div className="text-base font-bold text-emerald-400 mt-0.5">{activeSelectedSegment.conversion}</div>
                 </div>
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg text-left">
                   <span className="text-[10px] text-text-muted uppercase font-bold">LTV Contribution</span>
-                  <div className="text-base font-bold text-text-bright mt-0.5">{selectedSegment.revenue}</div>
+                  <div className="text-base font-bold text-text-bright mt-0.5">{activeSelectedSegment.revenue}</div>
                 </div>
               </div>
 
@@ -1393,8 +1460,9 @@ export default function SegmentationTab() {
             <div className="border-t border-slate-800 pt-4 flex gap-3">
               <button 
                 onClick={() => {
+                  const name = activeSelectedSegment?.name || "";
                   setSelectedSegment(null);
-                  triggerToast(`Cohort successfully created from segment '${selectedSegment.name}'!`);
+                  triggerToast(`Cohort successfully created from segment '${name}'!`);
                 }}
                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
@@ -1403,8 +1471,9 @@ export default function SegmentationTab() {
               </button>
               <button 
                 onClick={() => {
+                  const users = activeSelectedSegment?.users || "0";
                   setSelectedSegment(null);
-                  triggerToast(`User compilation CSV containing ${selectedSegment.users} profiles export queued.`);
+                  triggerToast(`User compilation CSV containing ${users} profiles export queued.`);
                 }}
                 className="flex-1 bg-transparent hover:bg-slate-800 text-text-bright border border-slate-800 text-xs font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >

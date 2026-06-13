@@ -174,23 +174,64 @@ export default function FeatureFlagsTab() {
     }
   ]);
 
+  const computedFlags = flags.map(flag => {
+    if (!isSimulating) return flag;
+    
+    // Scale exposed users and revenue impact based on flag id
+    let exposedUsers = flag.exposedUsers;
+    let revenueImpact = flag.revenueImpact;
+    let conversionLift = flag.conversionLift;
+    let latencyAfter = flag.latencyAfter;
+    let crashAfter = flag.crashAfter;
+    let errorAfter = flag.errorAfter;
+
+    if (flag.status !== "Disabled") {
+      if (flag.id === "FF-938291") {
+        exposedUsers = `${((12.4 * 1000000 + flagEvaluationsOffset) / 1000000).toFixed(2)}M`;
+        revenueImpact = `₹${(4.2 + flagEvaluationsOffset / 200000000).toFixed(2)} Cr`;
+        conversionLift = `+${(8.2 + Math.sin(flagEvaluationsOffset / 5000) * 0.12).toFixed(2)}%`;
+        latencyAfter = `${Math.round(215 + Math.sin(flagEvaluationsOffset / 10000) * 8)}ms`;
+        crashAfter = `${(0.3 + Math.sin(flagEvaluationsOffset / 12000) * 0.03).toFixed(2)}%`;
+        errorAfter = `${(0.8 + Math.cos(flagEvaluationsOffset / 14000) * 0.05).toFixed(2)}%`;
+      } else if (flag.id === "FF-884210") {
+        exposedUsers = `${((2.4 * 1000000 + flagEvaluationsOffset / 5) / 1000000).toFixed(2)}M`;
+        revenueImpact = `₹${(1.2 + flagEvaluationsOffset / 800000000).toFixed(2)} Cr`;
+        conversionLift = `+${(4.5 + Math.cos(flagEvaluationsOffset / 6000) * 0.08).toFixed(2)}%`;
+        latencyAfter = `${Math.round(198 + Math.cos(flagEvaluationsOffset / 11000) * 6)}ms`;
+        crashAfter = `${(0.1 + Math.sin(flagEvaluationsOffset / 13000) * 0.01).toFixed(2)}%`;
+        errorAfter = `${(0.9 + Math.sin(flagEvaluationsOffset / 15000) * 0.04).toFixed(2)}%`;
+      }
+    }
+
+    return {
+      ...flag,
+      exposedUsers,
+      revenueImpact,
+      conversionLift,
+      latencyAfter,
+      crashAfter,
+      errorAfter
+    };
+  });
+
   // Selected flag inside Details Workspace
-  const [selectedFlag, setSelectedFlag] = useState<FeatureFlagDataRow>(flags[0]);
+  const [selectedFlagId, setSelectedFlagId] = useState<string>("FF-938291");
+  const activeSelectedFlag = computedFlags.find(f => f.id === selectedFlagId) || computedFlags[0];
 
   // Handle active flag edit updates
   const handleUpdateRolloutSlider = (val: number) => {
-    const updated = { ...selectedFlag, rolloutPercentage: val };
-    setSelectedFlag(updated);
-    setFlags(flags.map(f => f.id === selectedFlag.id ? updated : f));
+    const flagToUpdate = flags.find(f => f.id === selectedFlagId) || flags[0];
+    const updated = { ...flagToUpdate, rolloutPercentage: val };
+    setFlags(flags.map(f => f.id === selectedFlagId ? updated : f));
   };
 
   const handleToggleActiveFlagStatus = () => {
-    const nextStatus = selectedFlag.status === "Active" ? "Disabled" as const : "Active" as const;
+    const flagToUpdate = flags.find(f => f.id === selectedFlagId) || flags[0];
+    const nextStatus = flagToUpdate.status === "Active" ? "Disabled" as const : "Active" as const;
     const nextRollout = nextStatus === "Active" ? 50 : 0;
-    const updated = { ...selectedFlag, status: nextStatus, rolloutPercentage: nextRollout };
-    setSelectedFlag(updated);
-    setFlags(flags.map(f => f.id === selectedFlag.id ? updated : f));
-    triggerToast(`Feature flag '${selectedFlag.name}' status set to ${nextStatus}`);
+    const updated = { ...flagToUpdate, status: nextStatus, rolloutPercentage: nextRollout };
+    setFlags(flags.map(f => f.id === selectedFlagId ? updated : f));
+    triggerToast(`Feature flag '${flagToUpdate.name}' status set to ${nextStatus}`);
   };
 
   const handleCreateFlagSubmit = (e: React.FormEvent) => {
@@ -227,7 +268,7 @@ export default function FeatureFlagsTab() {
     };
 
     setFlags([...flags, newFlag]);
-    setSelectedFlag(newFlag);
+    setSelectedFlagId(newFlag.id);
     setShowCreateModal(false);
     setNewFlagName("");
     setNewFlagKey("");
@@ -368,13 +409,13 @@ export default function FeatureFlagsTab() {
           </div>
 
           <div className="space-y-3 overflow-y-auto max-h-[550px] pr-2">
-            {flags.map((flag) => {
-              const isSelected = selectedFlag.id === flag.id;
+            {computedFlags.map((flag) => {
+              const isSelected = selectedFlagId === flag.id;
               const isOn = flag.status === "Active" || flag.status === "Testing";
               return (
                 <div
                   key={flag.id}
-                  onClick={() => setSelectedFlag(flag)}
+                  onClick={() => setSelectedFlagId(flag.id)}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-2.5 text-xs select-none ${
                     isSelected 
                       ? "bg-slate-950 border-primary" 
@@ -393,7 +434,6 @@ export default function FeatureFlagsTab() {
                         // toggle status
                         const nextStatus = flag.status === "Active" ? "Disabled" as const : "Active" as const;
                         const updated = { ...flag, status: nextStatus, rolloutPercentage: nextStatus === "Active" ? 80 : 0 };
-                        if (selectedFlag.id === flag.id) setSelectedFlag(updated);
                         setFlags(flags.map(f => f.id === flag.id ? updated : f));
                         triggerToast(`Flag ${flag.key} set to ${nextStatus}`);
                       }}
@@ -427,7 +467,7 @@ export default function FeatureFlagsTab() {
 
         {/* Right Columns: Feature Workspace Details */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-          {selectedFlag ? (
+          {activeSelectedFlag ? (
             <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-6 space-y-6">
               
               {/* Selected Flag Workspace Header */}
@@ -437,8 +477,8 @@ export default function FeatureFlagsTab() {
                     <Flag className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-text-bright">{selectedFlag.name} Details</h3>
-                    <span className="text-[9px] text-text-muted font-mono">{selectedFlag.id} ({selectedFlag.key})</span>
+                    <h3 className="text-sm font-bold text-text-bright">{activeSelectedFlag.name} Details</h3>
+                    <span className="text-[9px] text-text-muted font-mono">{activeSelectedFlag.id} ({activeSelectedFlag.key})</span>
                   </div>
                 </div>
 
@@ -446,18 +486,19 @@ export default function FeatureFlagsTab() {
                   <button 
                     onClick={handleToggleActiveFlagStatus}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      selectedFlag.status === "Active" 
+                      activeSelectedFlag.status === "Active" 
                         ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                         : "bg-slate-950 border-slate-800 text-text-muted hover:text-text-bright"
                     }`}
                   >
-                    {selectedFlag.status === "Active" ? "Active (On)" : "Disabled (Off)"}
+                    {activeSelectedFlag.status === "Active" ? "Active (On)" : "Disabled (Off)"}
                   </button>
                   <button 
                     onClick={() => {
-                      setFlags(flags.filter(f => f.id !== selectedFlag.id));
-                      setSelectedFlag(flags.find(f => f.id !== selectedFlag.id) || flags[0]);
-                      triggerToast(`Flag ${selectedFlag.key} successfully archived.`);
+                      const remaining = flags.filter(f => f.id !== selectedFlagId);
+                      setFlags(remaining);
+                      setSelectedFlagId(remaining[0]?.id || "");
+                      triggerToast(`Flag ${activeSelectedFlag.key} successfully archived.`);
                     }}
                     className="p-1.5 bg-transparent hover:bg-red-950/20 text-red-400 border border-red-500/20 hover:border-red-500/30 rounded-lg transition-colors"
                   >
@@ -471,14 +512,14 @@ export default function FeatureFlagsTab() {
                 <span className="block text-[10px] text-text-muted uppercase font-bold tracking-wider">Feature Flag Type</span>
                 <div className="flex flex-wrap gap-2">
                   {["Release Flag", "Experiment Flag", "Permission Flag", "Kill Switch", "Configuration Flag"].map((type) => {
-                    const isTypeSelected = selectedFlag.type === type;
+                    const isTypeSelected = activeSelectedFlag.type === type;
                     return (
                       <button
                         key={type}
                         onClick={() => {
-                          const updated = { ...selectedFlag, type: type as any };
-                          setSelectedFlag(updated);
-                          setFlags(flags.map(f => f.id === selectedFlag.id ? updated : f));
+                          const flagToUpdate = flags.find(f => f.id === selectedFlagId) || flags[0];
+                          const updated = { ...flagToUpdate, type: type as any };
+                          setFlags(flags.map(f => f.id === selectedFlagId ? updated : f));
                           triggerToast(`Flag type updated to: ${type}`);
                         }}
                         className={`text-[9px] px-2.5 py-1.5 font-bold rounded-lg border transition-all ${
@@ -503,16 +544,16 @@ export default function FeatureFlagsTab() {
                   <div className="space-y-2 text-xs">
                     <div>
                       <span className="text-[10px] text-text-muted">Description</span>
-                      <p className="text-text-bright font-medium">{selectedFlag.description}</p>
+                      <p className="text-text-bright font-medium">{activeSelectedFlag.description}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <div>
                         <span className="text-[10px] text-text-muted">Microservice Scope</span>
-                        <div className="text-text-bright font-semibold">{selectedFlag.service}</div>
+                        <div className="text-text-bright font-semibold">{activeSelectedFlag.service}</div>
                       </div>
                       <div>
                         <span className="text-[10px] text-text-muted">Repository scope</span>
-                        <div className="text-text-bright font-mono">{selectedFlag.repository}</div>
+                        <div className="text-text-bright font-mono">{activeSelectedFlag.repository}</div>
                       </div>
                     </div>
                   </div>
@@ -565,7 +606,7 @@ export default function FeatureFlagsTab() {
 
                   <div className="space-y-1.5 pt-2">
                     <div className="flex justify-between text-xs text-text-muted">
-                      <span>Exposure Slider: <span className="font-mono text-primary font-bold">{selectedFlag.rolloutPercentage}%</span></span>
+                      <span>Exposure Slider: <span className="font-mono text-primary font-bold">{activeSelectedFlag.rolloutPercentage}%</span></span>
                       <span>MD5 range assignment</span>
                     </div>
                     <input 
@@ -573,7 +614,7 @@ export default function FeatureFlagsTab() {
                       min="0"
                       max="100"
                       step="10"
-                      value={selectedFlag.rolloutPercentage}
+                      value={activeSelectedFlag.rolloutPercentage}
                       onChange={(e) => handleUpdateRolloutSlider(Number(e.target.value))}
                       className="w-full accent-primary cursor-pointer"
                     />
@@ -614,15 +655,15 @@ export default function FeatureFlagsTab() {
                     <span className="text-[10px] text-text-muted uppercase font-bold block">Business Conversion</span>
                     <div className="flex justify-between">
                       <span>Exposed Users</span>
-                      <span className="font-mono text-text-bright font-bold">{selectedFlag.exposedUsers}</span>
+                      <span className="font-mono text-text-bright font-bold">{activeSelectedFlag.exposedUsers}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Checkout Conversion Lift</span>
-                      <span className="font-mono text-emerald-400 font-bold">{selectedFlag.conversionLift}</span>
+                      <span className="font-mono text-emerald-400 font-bold">{activeSelectedFlag.conversionLift}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Attributed Revenue</span>
-                      <span className="font-mono text-text-bright font-bold">{selectedFlag.revenueImpact}</span>
+                      <span className="font-mono text-text-bright font-bold">{activeSelectedFlag.revenueImpact}</span>
                     </div>
                   </div>
 
@@ -631,15 +672,15 @@ export default function FeatureFlagsTab() {
                     <span className="text-[10px] text-text-muted uppercase font-bold block">System Latency & Stability</span>
                     <div className="flex justify-between">
                       <span>API Latency</span>
-                      <span>{selectedFlag.latencyBefore} <span className="text-emerald-400">→ {selectedFlag.latencyAfter}</span></span>
+                      <span>{activeSelectedFlag.latencyBefore} <span className="text-emerald-400">→ {activeSelectedFlag.latencyAfter}</span></span>
                     </div>
                     <div className="flex justify-between">
                       <span>App Crash Rate</span>
-                      <span>{selectedFlag.crashBefore} <span className="text-emerald-400">→ {selectedFlag.crashAfter}</span></span>
+                      <span>{activeSelectedFlag.crashBefore} <span className="text-emerald-400">→ {activeSelectedFlag.crashAfter}</span></span>
                     </div>
                     <div className="flex justify-between">
                       <span>Server Error Rate</span>
-                      <span>{selectedFlag.errorBefore} <span className="text-emerald-400">→ {selectedFlag.errorAfter}</span></span>
+                      <span>{activeSelectedFlag.errorBefore} <span className="text-emerald-400">→ {activeSelectedFlag.errorAfter}</span></span>
                     </div>
                   </div>
                 </div>
@@ -652,7 +693,7 @@ export default function FeatureFlagsTab() {
                   <h4 className="text-xs font-bold text-text-bright border-b border-slate-800 pb-1.5 uppercase">Change History & Audit Logs</h4>
                   
                   <div className="space-y-2 overflow-y-auto max-h-[140px] pr-1 text-xs">
-                    {selectedFlag.auditLogs.map((log, idx) => (
+                    {activeSelectedFlag.auditLogs.map((log, idx) => (
                       <div key={idx} className="bg-slate-950 p-2.5 rounded border border-slate-850/60 flex items-center justify-between gap-2">
                         <div>
                           <span className="font-bold text-text-bright">{log.action}</span>
@@ -671,7 +712,7 @@ export default function FeatureFlagsTab() {
                     <div>
                       <span className="text-[8px] uppercase font-bold text-text-muted">Depends On</span>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {selectedFlag.dependsOn.map(dep => (
+                        {activeSelectedFlag.dependsOn.map(dep => (
                           <span key={dep} className="text-[9px] bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-text-bright font-semibold">{dep}</span>
                         ))}
                       </div>
@@ -679,7 +720,7 @@ export default function FeatureFlagsTab() {
                     <div>
                       <span className="text-[8px] uppercase font-bold text-text-muted">Used By Client SDKs</span>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {selectedFlag.usedBy.map(cli => (
+                        {activeSelectedFlag.usedBy.map(cli => (
                           <span key={cli} className="text-[9px] bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-text-bright font-semibold">{cli}</span>
                         ))}
                       </div>
@@ -703,11 +744,10 @@ export default function FeatureFlagsTab() {
                   </div>
                   <button 
                     onClick={() => {
-                      // disable flag
-                      const updated = { ...selectedFlag, status: "Disabled" as const, rolloutPercentage: 0 };
-                      setSelectedFlag(updated);
-                      setFlags(flags.map(f => f.id === selectedFlag.id ? updated : f));
-                      triggerToast(`EMERGENCY KILLED: Flag ${selectedFlag.key} disabled globally!`);
+                      const flagToUpdate = flags.find(f => f.id === selectedFlagId) || flags[0];
+                      const updated = { ...flagToUpdate, status: "Disabled" as const, rolloutPercentage: 0 };
+                      setFlags(flags.map(f => f.id === selectedFlagId ? updated : f));
+                      triggerToast(`EMERGENCY KILLED: Flag ${flagToUpdate.key} disabled globally!`);
                     }}
                     className="w-full py-2 bg-red-500 hover:bg-red-650 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   >

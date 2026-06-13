@@ -71,7 +71,7 @@ export default function RevenueTab() {
   const [viewBy, setViewBy] = useState("Monthly");
 
   // Interaction states
-  const [selectedCustomer, setSelectedCustomer] = useState<TopCustomerRow | null>(null);
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
   const [showCreateAlertModal, setShowCreateAlertModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [compositionFilter, setCompositionFilter] = useState<string | null>(null);
@@ -113,30 +113,40 @@ export default function RevenueTab() {
     );
   };
 
+  const revFactor = isSimulating ? (1287142 + mrrOffset) : 1287142;
+  const revMultiplier = revFactor / 1287142;
+
   // Data constants matching mockup exactly
-  const mrrSparklineData = [872, 910, 930, 990, 1020, 1060, 1090, 1116, 1150, 1210, 1250, 1287];
-  const ltvSparklineData = [42000, 42500, 43100, 43900, 44200, 44800, 45100, 45900, 46200, 47100, 47900, 48552];
+  const baseMrrSparklineData = [872, 910, 930, 990, 1020, 1060, 1090, 1116, 1150, 1210, 1250, 1287];
+  const mrrSparklineData = baseMrrSparklineData.map(val => 
+    isSimulating ? Math.round(val + mrrOffset / 1000 * (val / 1287)) : val
+  );
+
+  const baseLtvSparklineData = [42000, 42500, 43100, 43900, 44200, 44800, 45100, 45900, 46200, 47100, 47900, 48552];
+  const ltvSparklineData = baseLtvSparklineData.map(val => 
+    isSimulating ? Math.round(val * revMultiplier) : val
+  );
 
   // Donut Plan Composition
   const donutData = [
-    { name: "Enterprise", value: 56.0, count: "$721K", color: "#00D084" },
-    { name: "Pro SaaS", value: 29.4, count: "$379K", color: "#3B82F6" },
-    { name: "Starter", value: 10.2, count: "$132K", color: "#8B5CF6" },
-    { name: "Free", value: 4.4, count: "$55K", color: "#F59E0B" }
+    { name: "Enterprise", value: 56.0, count: isSimulating ? `$${Math.round(721 * revMultiplier)}K` : "$721K", color: "#00D084" },
+    { name: "Pro SaaS", value: 29.4, count: isSimulating ? `$${Math.round(379 * revMultiplier)}K` : "$379K", color: "#3B82F6" },
+    { name: "Starter", value: 10.2, count: isSimulating ? `$${Math.round(132 * revMultiplier)}K` : "$132K", color: "#8B5CF6" },
+    { name: "Free", value: 4.4, count: isSimulating ? `$${Math.round(55 * revMultiplier)}K` : "$55K", color: "#F59E0B" }
   ];
 
   // Geography split
   const regionData = [
-    { region: "United States", mrr: "$512K", pct: "39.8%", change: "+12.8%", color: "text-emerald-400" },
-    { region: "India", mrr: "$289K", pct: "22.4%", change: "+18.6%", color: "text-emerald-400" },
-    { region: "United Kingdom", mrr: "$138K", pct: "10.7%", change: "+9.3%", color: "text-emerald-400" },
-    { region: "Canada", mrr: "$92K", pct: "7.1%", change: "+14.1%", color: "text-emerald-400" },
-    { region: "Australia", mrr: "$78K", pct: "5.9%", change: "+11.7%", color: "text-emerald-400" },
-    { region: "Germany", mrr: "$54K", pct: "4.1%", change: "+10.2%", color: "text-emerald-400" }
+    { region: "United States", mrr: isSimulating ? `$${Math.round(512 * revMultiplier)}K` : "$512K", pct: "39.8%", change: "+12.8%", color: "text-emerald-400" },
+    { region: "India", mrr: isSimulating ? `$${Math.round(289 * revMultiplier)}K` : "$289K", pct: "22.4%", change: "+18.6%", color: "text-emerald-400" },
+    { region: "United Kingdom", mrr: isSimulating ? `$${Math.round(138 * revMultiplier)}K` : "$138K", pct: "10.7%", change: "+9.3%", color: "text-emerald-400" },
+    { region: "Canada", mrr: isSimulating ? `$${Math.round(92 * revMultiplier)}K` : "$92K", pct: "7.1%", change: "+14.1%", color: "text-emerald-400" },
+    { region: "Australia", mrr: isSimulating ? `$${Math.round(78 * revMultiplier)}K` : "$78K", pct: "5.9%", change: "+11.7%", color: "text-emerald-400" },
+    { region: "Germany", mrr: isSimulating ? `$${Math.round(54 * revMultiplier)}K` : "$54K", pct: "4.1%", change: "+10.2%", color: "text-emerald-400" }
   ];
 
   // Revenue Growth Trend Line & Area
-  const growthTrendData = [
+  const baseGrowthTrendData = [
     { month: "Jul 25", Actual: 872, Forecast: null },
     { month: "Aug 25", Actual: 910, Forecast: null },
     { month: "Sep 25", Actual: 940, Forecast: null },
@@ -156,75 +166,97 @@ export default function RevenueTab() {
     { month: "Nov 26", Actual: null, Forecast: 1510 },
     { month: "Dec 26", Actual: null, Forecast: 1540 }
   ];
+  const growthTrendData = baseGrowthTrendData.map(item => ({
+    ...item,
+    Actual: item.Actual ? (isSimulating ? Math.round(item.Actual * revMultiplier) : item.Actual) : null,
+    Forecast: item.Forecast ? (isSimulating ? Math.round(item.Forecast * revMultiplier) : item.Forecast) : null
+  }));
 
   // MRR Movement waterfall data representation
   const waterfallData = [
-    { name: "Starting (May)", range: [0, 1116], display: "$1.116M", color: "#3B82F6" },
-    { name: "New Business", range: [1116, 1330], display: "+$214K", color: "#00D084" },
-    { name: "Expansion", range: [1330, 1508], display: "+$178K", color: "#00D084" },
-    { name: "Contraction", range: [1410, 1508], display: "-$98K", color: "#EC4899" },
-    { name: "Churn", range: [1287, 1410], display: "-$165K", color: "#EF4444" },
-    { name: "Ending (Jun)", range: [0, 1287], display: "$1.287M", color: "#3B82F6" }
+    { name: "Starting (May)", range: isSimulating ? [0, Math.round(1116 * revMultiplier)] : [0, 1116], display: isSimulating ? `$${(1.116 * revMultiplier).toFixed(3)}M` : "$1.116M", color: "#3B82F6" },
+    { name: "New Business", range: isSimulating ? [Math.round(1116 * revMultiplier), Math.round(1330 * revMultiplier)] : [1116, 1330], display: isSimulating ? `+$${Math.round(214 * revMultiplier)}K` : "+$214K", color: "#00D084" },
+    { name: "Expansion", range: isSimulating ? [Math.round(1330 * revMultiplier), Math.round(1508 * revMultiplier)] : [1330, 1508], display: isSimulating ? `+$${Math.round(178 * revMultiplier)}K` : "+$178K", color: "#00D084" },
+    { name: "Contraction", range: isSimulating ? [Math.round(1410 * revMultiplier), Math.round(1508 * revMultiplier)] : [1410, 1508], display: isSimulating ? `-$${Math.round(98 * revMultiplier)}K` : "-$98K", color: "#EC4899" },
+    { name: "Churn", range: isSimulating ? [Math.round(1287 * revMultiplier), Math.round(1410 * revMultiplier)] : [1287, 1410], display: isSimulating ? `-$${Math.round(165 * revMultiplier)}K` : "-$165K", color: "#EF4444" },
+    { name: "Ending (Jun)", range: isSimulating ? [0, Math.round(1287 * revMultiplier)] : [0, 1287], display: isSimulating ? `$${(1.287 * revMultiplier).toFixed(3)}M` : "$1.287M", color: "#3B82F6" }
   ];
 
   // Billing Cohort analysis matrix
   const cohortMatrix = [
-    { cohort: "Jun 2025", count: "1,243", m0: "100%", m1: "96%", m2: "94%", m3: "91%", m6: "86%", m9: "82%", m12: "76%" },
-    { cohort: "May 2025", count: "1,226", m0: "100%", m1: "95%", m2: "92%", m3: "89%", m6: "84%", m9: "79%", m12: "-" },
-    { cohort: "Apr 2025", count: "1,287", m0: "100%", m1: "94%", m2: "91%", m3: "87%", m6: "82%", m9: "-", m12: "-" },
-    { cohort: "Mar 2025", count: "1,156", m0: "100%", m1: "93%", m2: "90%", m3: "85%", m6: "-", m9: "-", m12: "-" },
-    { cohort: "Feb 2025", count: "1,043", m0: "100%", m1: "92%", m2: "89%", m3: "-", m6: "-", m9: "-", m12: "-" }
+    { cohort: "Jun 2025", count: isSimulating ? Math.round(1243 * revMultiplier).toLocaleString() : "1,243", m0: "100%", m1: "96%", m2: "94%", m3: "91%", m6: "86%", m9: "82%", m12: "76%" },
+    { cohort: "May 2025", count: isSimulating ? Math.round(1226 * revMultiplier).toLocaleString() : "1,226", m0: "100%", m1: "95%", m2: "92%", m3: "89%", m6: "84%", m9: "79%", m12: "-" },
+    { cohort: "Apr 2025", count: isSimulating ? Math.round(1287 * revMultiplier).toLocaleString() : "1,287", m0: "100%", m1: "94%", m2: "91%", m3: "87%", m6: "82%", m9: "-", m12: "-" },
+    { cohort: "Mar 2025", count: isSimulating ? Math.round(1156 * revMultiplier).toLocaleString() : "1,156", m0: "100%", m1: "93%", m2: "90%", m3: "85%", m6: "-", m9: "-", m12: "-" },
+    { cohort: "Feb 2025", count: isSimulating ? Math.round(1043 * revMultiplier).toLocaleString() : "1,043", m0: "100%", m1: "92%", m2: "89%", m3: "-", m6: "-", m9: "-", m12: "-" }
   ];
 
   // LTV Acquisition Channels
   const channelData = [
-    { channel: "Organic Search", customers: "8,126", ltv: "$62,342", revenue: "$506K", change: "↑ 16.8%", color: "text-emerald-400" },
-    { channel: "Paid Search", customers: "4,325", ltv: "$48,231", revenue: "$208K", change: "↑ 12.2%", color: "text-emerald-400" },
-    { channel: "Direct", customers: "3,452", ltv: "$52,814", revenue: "$182K", change: "↑ 8.6%", color: "text-emerald-400" },
-    { channel: "Referral", customers: "1,982", ltv: "$68,917", revenue: "$137K", change: "↑ 20.3%", color: "text-emerald-400" },
-    { channel: "Social Media", customers: "1,678", ltv: "$37,421", revenue: "$63K", change: "↑ 11.5%", color: "text-emerald-400" },
-    { channel: "Affiliate", customers: "932", ltv: "$41,229", revenue: "$38K", change: "↑ 7.8%", color: "text-emerald-400" }
+    { channel: "Organic Search", customers: isSimulating ? Math.round(8126 * revMultiplier).toLocaleString() : "8,126", ltv: isSimulating ? `$${Math.round(62342 * revMultiplier).toLocaleString()}` : "$62,342", revenue: isSimulating ? `$${Math.round(506 * revMultiplier)}K` : "$506K", change: "↑ 16.8%", color: "text-emerald-400" },
+    { channel: "Paid Search", customers: isSimulating ? Math.round(4325 * revMultiplier).toLocaleString() : "4,325", ltv: isSimulating ? `$${Math.round(48231 * revMultiplier).toLocaleString()}` : "$48,231", revenue: isSimulating ? `$${Math.round(208 * revMultiplier)}K` : "$208K", change: "↑ 12.2%", color: "text-emerald-400" },
+    { channel: "Direct", customers: isSimulating ? Math.round(3452 * revMultiplier).toLocaleString() : "3,452", ltv: isSimulating ? `$${Math.round(52814 * revMultiplier).toLocaleString()}` : "$52,814", revenue: isSimulating ? `$${Math.round(182 * revMultiplier)}K` : "$182K", change: "↑ 8.6%", color: "text-emerald-400" },
+    { channel: "Referral", customers: isSimulating ? Math.round(1982 * revMultiplier).toLocaleString() : "1,982", ltv: isSimulating ? `$${Math.round(68917 * revMultiplier).toLocaleString()}` : "$68,917", revenue: isSimulating ? `$${Math.round(137 * revMultiplier)}K` : "$137K", change: "↑ 20.3%", color: "text-emerald-400" },
+    { channel: "Social Media", customers: isSimulating ? Math.round(1678 * revMultiplier).toLocaleString() : "1,678", ltv: isSimulating ? `$${Math.round(37421 * revMultiplier).toLocaleString()}` : "$37,421", revenue: isSimulating ? `$${Math.round(63 * revMultiplier)}K` : "$63K", change: "↑ 11.5%", color: "text-emerald-400" },
+    { channel: "Affiliate", customers: isSimulating ? Math.round(932 * revMultiplier).toLocaleString() : "932", ltv: isSimulating ? `$${Math.round(41229 * revMultiplier).toLocaleString()}` : "$41,229", revenue: isSimulating ? `$${Math.round(38 * revMultiplier)}K` : "$38K", change: "↑ 7.8%", color: "text-emerald-400" }
   ];
 
   // Top Customers list details drawer mappings
   const topCustomersDataset: TopCustomerRow[] = [
     { 
-      customer: "TechNova Solutions", plan: "Enterprise", mrr: "$24,900", arr: "$298,800", since: "Jan 2024",
+      customer: "TechNova Solutions", plan: "Enterprise", 
+      mrr: isSimulating ? `$${Math.round(24900 * revMultiplier).toLocaleString()}` : "$24,900", 
+      arr: isSimulating ? `$${Math.round(298800 * revMultiplier).toLocaleString()}` : "$298,800", 
+      since: "Jan 2024",
       contact: "Sarah Jenkins (CFO)", status: "Active",
       invoices: [
-        { id: "INV-2026-004", date: "01 Jun 2026", amount: "$24,900", status: "Paid" },
-        { id: "INV-2026-003", date: "01 May 2026", amount: "$24,900", status: "Paid" }
+        { id: "INV-2026-004", date: "01 Jun 2026", amount: isSimulating ? `$${Math.round(24900 * revMultiplier).toLocaleString()}` : "$24,900", status: "Paid" },
+        { id: "INV-2026-003", date: "01 May 2026", amount: isSimulating ? `$${Math.round(24900 * revMultiplier).toLocaleString()}` : "$24,900", status: "Paid" }
       ]
     },
     { 
-      customer: "InnovateX Labs", plan: "Enterprise", mrr: "$19,500", arr: "$234,000", since: "Mar 2024",
+      customer: "InnovateX Labs", plan: "Enterprise", 
+      mrr: isSimulating ? `$${Math.round(19500 * revMultiplier).toLocaleString()}` : "$19,500", 
+      arr: isSimulating ? `$${Math.round(234000 * revMultiplier).toLocaleString()}` : "$234,000", 
+      since: "Mar 2024",
       contact: "Marcus Chen (VP Eng)", status: "Active",
       invoices: [
-        { id: "INV-2026-005", date: "05 Jun 2026", amount: "$19,500", status: "Paid" }
+        { id: "INV-2026-005", date: "05 Jun 2026", amount: isSimulating ? `$${Math.round(19500 * revMultiplier).toLocaleString()}` : "$19,500", status: "Paid" }
       ]
     },
     { 
-      customer: "DataCore Systems", plan: "Enterprise", mrr: "$8,700", arr: "$104,400", since: "Apr 2024",
+      customer: "DataCore Systems", plan: "Enterprise", 
+      mrr: isSimulating ? `$${Math.round(8700 * revMultiplier).toLocaleString()}` : "$8,700", 
+      arr: isSimulating ? `$${Math.round(104400 * revMultiplier).toLocaleString()}` : "$104,400", 
+      since: "Apr 2024",
       contact: "Linda Lovelace (CPO)", status: "Active",
       invoices: [
-        { id: "INV-2026-006", date: "10 Jun 2026", amount: "$8,700", status: "Paid" }
+        { id: "INV-2026-006", date: "10 Jun 2026", amount: isSimulating ? `$${Math.round(8700 * revMultiplier).toLocaleString()}` : "$8,700", status: "Paid" }
       ]
     },
     { 
-      customer: "CloudScale Inc.", plan: "Pro SaaS", mrr: "$7,900", arr: "$94,800", since: "Feb 2024",
+      customer: "CloudScale Inc.", plan: "Pro SaaS", 
+      mrr: isSimulating ? `$${Math.round(7900 * revMultiplier).toLocaleString()}` : "$7,900", 
+      arr: isSimulating ? `$${Math.round(94800 * revMultiplier).toLocaleString()}` : "$94,800", 
+      since: "Feb 2024",
       contact: "Devon Miller (CTO)", status: "Active",
       invoices: [
-        { id: "INV-2026-007", date: "12 Jun 2026", amount: "$7,900", status: "Paid" }
+        { id: "INV-2026-007", date: "12 Jun 2026", amount: isSimulating ? `$${Math.round(7900 * revMultiplier).toLocaleString()}` : "$7,900", status: "Paid" }
       ]
     },
     { 
-      customer: "ByteFlow Analytics", plan: "Pro SaaS", mrr: "$6,400", arr: "$76,800", since: "May 2024",
+      customer: "ByteFlow Analytics", plan: "Pro SaaS", 
+      mrr: isSimulating ? `$${Math.round(6400 * revMultiplier).toLocaleString()}` : "$6,400", 
+      arr: isSimulating ? `$${Math.round(76800 * revMultiplier).toLocaleString()}` : "$76,800", 
+      since: "May 2024",
       contact: "Priya Nair (Founder)", status: "Active",
       invoices: [
-        { id: "INV-2026-008", date: "13 Jun 2026", amount: "$6,400", status: "Paid" }
+        { id: "INV-2026-008", date: "13 Jun 2026", amount: isSimulating ? `$${Math.round(6400 * revMultiplier).toLocaleString()}` : "$6,400", status: "Paid" }
       ]
     }
   ];
+
+  const activeSelectedCustomer = selectedCustomerName ? (topCustomersDataset.find(c => c.customer === selectedCustomerName) || null) : null;
 
   // Alerts & insights diagnostics details
   const alertsData = [
@@ -234,7 +266,7 @@ export default function RevenueTab() {
   ];
 
   // Revenue Forecast 6 months dataset
-  const forecastChartData = [
+  const baseForecastChartData = [
     { month: "Jul 26", Actual: 1287, Forecast: 1330 },
     { month: "Aug 26", Actual: null, Forecast: 1380 },
     { month: "Sep 26", Actual: null, Forecast: 1420 },
@@ -242,6 +274,11 @@ export default function RevenueTab() {
     { month: "Nov 26", Actual: null, Forecast: 1610 },
     { month: "Dec 26", Actual: null, Forecast: 1780 }
   ];
+  const forecastChartData = baseForecastChartData.map(item => ({
+    ...item,
+    Actual: item.Actual ? (isSimulating ? Math.round(item.Actual * revMultiplier) : item.Actual) : null,
+    Forecast: item.Forecast ? (isSimulating ? Math.round(item.Forecast * revMultiplier) : item.Forecast) : null
+  }));
 
   return (
     <div className="space-y-6 relative pb-12">
@@ -500,11 +537,21 @@ export default function RevenueTab() {
             <Layers className="w-4.5 h-4.5 text-purple-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="mt-2.5">
-            <div className="text-xl font-bold text-emerald-400">118%</div>
+            <div className="text-xl font-bold text-emerald-400 font-mono">
+              {isSimulating 
+                ? `${(118 + Math.sin(mrrOffset / 1500) * 0.4).toFixed(2)}%`
+                : "118%"}
+            </div>
             <div className="flex items-center gap-1 mt-1 text-[8px] text-text-muted justify-between">
-              <span className="text-emerald-400">Exp: +22%</span>
-              <span className="text-red-400">Churn: -4%</span>
-              <span className="text-red-400">Down: -3%</span>
+              <span className="text-emerald-400">
+                Exp: {isSimulating ? `+${(22 + Math.sin(mrrOffset / 2000) * 0.15).toFixed(2)}%` : "+22%"}
+              </span>
+              <span className="text-red-400">
+                Churn: {isSimulating ? `${(-4 + Math.cos(mrrOffset / 2500) * 0.05).toFixed(2)}%` : "-4%"}
+              </span>
+              <span className="text-red-400">
+                Down: {isSimulating ? `${(-3 + Math.sin(mrrOffset / 3000) * 0.05).toFixed(2)}%` : "-3%"}
+              </span>
             </div>
           </div>
         </div>
@@ -516,7 +563,11 @@ export default function RevenueTab() {
             <Award className="w-4.5 h-4.5 text-pink-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="mt-2.5">
-            <div className="text-xl font-bold text-text-bright">$48,552</div>
+            <div className="text-xl font-bold text-text-bright font-mono">
+              {isSimulating 
+                ? `$${Math.round(48552 * revMultiplier).toLocaleString()}` 
+                : "$48,552"}
+            </div>
             <div className="flex items-center justify-between mt-1 text-[10px]">
               <span className="text-text-muted">Avg customer LTV</span>
               <MiniSparkline data={ltvSparklineData} color="#ec4899" />
@@ -531,7 +582,11 @@ export default function RevenueTab() {
             <CreditCard className="w-4.5 h-4.5 text-blue-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="mt-2.5">
-            <div className="text-xl font-bold text-text-bright">$79.5</div>
+            <div className="text-xl font-bold text-text-bright font-mono">
+              {isSimulating 
+                ? `$${(79.5 + Math.sin(mrrOffset / 1000) * 0.3).toFixed(2)}` 
+                : "$79.5"}
+            </div>
             <div className="flex items-center gap-1 mt-1 text-[10px]">
               <span className="text-emerald-400 font-semibold">↑ 4.3%</span>
               <span className="text-text-muted">vs previous period</span>
@@ -546,7 +601,11 @@ export default function RevenueTab() {
             <TrendingDown className="w-4.5 h-4.5 text-red-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="mt-2.5">
-            <div className="text-xl font-bold text-red-400">2.48%</div>
+            <div className="text-xl font-bold text-red-400 font-mono">
+              {isSimulating 
+                ? `${(2.48 + Math.cos(mrrOffset / 1800) * 0.08).toFixed(2)}%` 
+                : "2.48%"}
+            </div>
             <div className="flex items-center gap-1 mt-1 text-[10px]">
               <span className="text-red-400 font-semibold">↓ 0.8%</span>
               <span className="text-text-muted">cancellations drop</span>
@@ -925,7 +984,7 @@ export default function RevenueTab() {
                   {topCustomersDataset.map((row, idx) => (
                     <tr 
                       key={idx} 
-                      onClick={() => setSelectedCustomer(row)}
+                      onClick={() => setSelectedCustomerName(row.customer)}
                       className="hover:bg-slate-850/50 transition-colors cursor-pointer group"
                     >
                       <td className="py-2.5 font-bold text-text-bright truncate max-w-[105px] group-hover:text-primary transition-colors">
@@ -1062,11 +1121,11 @@ export default function RevenueTab() {
       </div>
 
       {/* Customer details right drawer */}
-      {selectedCustomer && (
+      {activeSelectedCustomer && (
         <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
           {/* Backdrop overlay */}
           <div 
-            onClick={() => setSelectedCustomer(null)}
+            onClick={() => setSelectedCustomerName(null)}
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
           />
 
@@ -1080,12 +1139,12 @@ export default function RevenueTab() {
                     <DollarSign className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-text-bright">{selectedCustomer.customer}</h3>
-                    <span className="text-[8px] bg-slate-950 border border-slate-800 px-1.5 py-0.5 rounded text-emerald-400 font-bold uppercase">{selectedCustomer.plan} Plan</span>
+                    <h3 className="text-base font-bold text-text-bright">{activeSelectedCustomer.customer}</h3>
+                    <span className="text-[8px] bg-slate-950 border border-slate-800 px-1.5 py-0.5 rounded text-emerald-400 font-bold uppercase">{activeSelectedCustomer.plan} Plan</span>
                   </div>
                 </div>
                 <button 
-                  onClick={() => setSelectedCustomer(null)}
+                  onClick={() => setSelectedCustomerName(null)}
                   className="p-1.5 hover:bg-slate-800 rounded-lg text-text-muted hover:text-text-bright transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -1096,15 +1155,15 @@ export default function RevenueTab() {
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Monthly Recurring Revenue</span>
-                  <div className="text-base font-bold text-text-bright mt-0.5">{selectedCustomer.mrr}</div>
+                  <div className="text-base font-bold text-text-bright mt-0.5">{activeSelectedCustomer.mrr}</div>
                 </div>
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Annual Recurring Revenue</span>
-                  <div className="text-base font-bold text-text-bright mt-0.5">{selectedCustomer.arr}</div>
+                  <div className="text-base font-bold text-text-bright mt-0.5">{activeSelectedCustomer.arr}</div>
                 </div>
                 <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg col-span-2">
                   <span className="text-[10px] text-text-muted uppercase font-bold">Customer since</span>
-                  <div className="text-sm font-semibold text-text-bright mt-0.5">{selectedCustomer.since}</div>
+                  <div className="text-sm font-semibold text-text-bright mt-0.5">{activeSelectedCustomer.since}</div>
                 </div>
               </div>
 
@@ -1114,19 +1173,19 @@ export default function RevenueTab() {
                 <div className="space-y-3 text-xs">
                   <div className="p-2.5 rounded bg-slate-950 border border-slate-850">
                     <span className="text-[8px] uppercase font-bold text-text-muted">Primary Billing Contact</span>
-                    <p className="text-text-bright font-semibold mt-1">{selectedCustomer.contact}</p>
+                    <p className="text-text-bright font-semibold mt-1">{activeSelectedCustomer.contact}</p>
                   </div>
 
                   <div className="p-2.5 rounded bg-slate-950 border border-slate-850">
                     <span className="text-[8px] uppercase font-bold text-text-muted">Subscription Status</span>
-                    <p className="text-emerald-400 font-bold mt-1">● {selectedCustomer.status}</p>
+                    <p className="text-emerald-400 font-bold mt-1">● {activeSelectedCustomer.status}</p>
                   </div>
 
                   {/* Billing history invoice list */}
                   <div className="space-y-1.5">
                     <span className="text-[10px] text-text-muted font-bold uppercase">Recent Invoices</span>
                     <div className="space-y-2">
-                      {selectedCustomer.invoices.map((inv, idx) => (
+                      {activeSelectedCustomer.invoices.map((inv, idx) => (
                         <div key={idx} className="flex justify-between items-center bg-slate-950 p-2.5 rounded border border-slate-850 text-xs">
                           <div>
                             <span className="font-bold text-text-bright">{inv.id}</span>
@@ -1148,8 +1207,8 @@ export default function RevenueTab() {
             <div className="border-t border-slate-800 pt-4 flex gap-3">
               <button 
                 onClick={() => {
-                  setSelectedCustomer(null);
-                  triggerToast(`Transitioning to Stripe account manager for: ${selectedCustomer.customer}`);
+                  setSelectedCustomerName(null);
+                  triggerToast(`Transitioning to Stripe account manager for: ${activeSelectedCustomer.customer}`);
                 }}
                 className="flex-1 bg-primary hover:bg-primary-dark text-white text-xs font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
@@ -1157,8 +1216,8 @@ export default function RevenueTab() {
               </button>
               <button 
                 onClick={() => {
-                  setSelectedCustomer(null);
-                  triggerToast(`Contacting client liaison sarah.j@${selectedCustomer.customer.toLowerCase().replace(/\s/g, "")}.com`);
+                  setSelectedCustomerName(null);
+                  triggerToast(`Contacting client liaison sarah.j@${activeSelectedCustomer.customer.toLowerCase().replace(/\s/g, "")}.com`);
                 }}
                 className="flex-1 bg-transparent hover:bg-slate-800 text-text-bright border border-slate-800 text-xs font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >

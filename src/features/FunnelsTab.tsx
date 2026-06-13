@@ -42,6 +42,7 @@ import {
   Legend
 } from "recharts";
 import { mockEngine } from "@/lib/mockEngine";
+import { useSimulation } from "@/context/SimulationContext";
 
 interface StepDetails {
   title: string;
@@ -55,6 +56,39 @@ interface StepDetails {
 }
 
 export default function FunnelsTab() {
+  const { isSimulating, ordersTodayOffset, gmvTodayOffset } = useSimulation();
+
+  const enteredRaw = 149200000 + (isSimulating ? ordersTodayOffset * 23 : 0);
+  const conversionsRaw = 6480000 + (isSimulating ? ordersTodayOffset : 0);
+  const conversionRate = (conversionsRaw / enteredRaw) * 100;
+  const revenueRaw = 4283000000 + (isSimulating ? gmvTodayOffset : 0);
+
+  const step1Users = enteredRaw;
+  const step2Users = 98700000 + (isSimulating ? ordersTodayOffset * 15.2 : 0);
+  const step3Users = 61300000 + (isSimulating ? ordersTodayOffset * 9.4 : 0);
+  const step4Users = 23900000 + (isSimulating ? ordersTodayOffset * 3.6 : 0);
+  const step5Users = 9300000 + (isSimulating ? ordersTodayOffset * 1.4 : 0);
+  const step6Users = conversionsRaw;
+
+  const step1Rate = 100;
+  const step2Rate = (step2Users / step1Users) * 100;
+  const step3Rate = (step3Users / step2Users) * 100;
+  const step4Rate = (step4Users / step3Users) * 100;
+  const step5Rate = (step5Users / step4Users) * 100;
+  const step6Rate = (step6Users / step5Users) * 100;
+
+  const drop1Users = step1Users - step2Users;
+  const drop2Users = step2Users - step3Users;
+  const drop3Users = step3Users - step4Users;
+  const drop4Users = step4Users - step5Users;
+  const drop5Users = step5Users - step6Users;
+
+  const drop1Rate = (drop1Users / step1Users) * 100;
+  const drop2Rate = (drop2Users / step2Users) * 100;
+  const drop3Rate = (drop3Users / step3Users) * 100;
+  const drop4Rate = (drop4Users / step4Users) * 100;
+  const drop5Rate = (drop5Users / step5Users) * 100;
+
   // Config Bar States
   const [currentFunnel, setCurrentFunnel] = useState("Purchase Journey");
   const [dateRange, setDateRange] = useState("Last 30 Days");
@@ -71,7 +105,7 @@ export default function FunnelsTab() {
   const [conversionMetric, setConversionMetric] = useState("Conversion %");
 
   // Drawer for Step Intelligence
-  const [selectedStep, setSelectedStep] = useState<StepDetails | null>(null);
+  const [selectedStepKey, setSelectedStepKey] = useState<string | null>(null);
 
   // Interactive Toast / Notification Modal for Actions
   const [alertText, setAlertText] = useState<string | null>(null);
@@ -80,7 +114,7 @@ export default function FunnelsTab() {
   const stepDetailsMap: Record<string, StepDetails> = {
     "App Opened": {
       title: "APP OPENED",
-      users: "149.2M",
+      users: `${(step1Users / 1000000).toFixed(4)}M`,
       successRate: "100%",
       avgItems: "N/A",
       revenue: "N/A",
@@ -97,10 +131,10 @@ export default function FunnelsTab() {
     },
     "Search Completed": {
       title: "SEARCH COMPLETED",
-      users: "98.7M",
-      successRate: "66.2%",
+      users: `${(step2Users / 1000000).toFixed(4)}M`,
+      successRate: `${step2Rate.toFixed(2)}%`,
       avgItems: "3.2 searches/session",
-      revenue: "₹340 Cr influenced",
+      revenue: `₹${(340 + (isSimulating ? gmvTodayOffset * 0.79 / 10000000 : 0)).toFixed(4)} Cr influenced`,
       dropReasons: [
         { reason: "Zero result queries", pct: 28 },
         { reason: "Irrelevant suggestions", pct: 18 },
@@ -114,10 +148,10 @@ export default function FunnelsTab() {
     },
     "Product Viewed": {
       title: "PRODUCT DETAIL VIEW (PDP)",
-      users: "61.3M",
-      successRate: "62.1%",
+      users: `${(step3Users / 1000000).toFixed(4)}M`,
+      successRate: `${step3Rate.toFixed(2)}%`,
       avgItems: "2.1 views/session",
-      revenue: "₹280 Cr influenced",
+      revenue: `₹${(280 + (isSimulating ? gmvTodayOffset * 0.65 / 10000000 : 0)).toFixed(4)} Cr influenced`,
       dropReasons: [
         { reason: "Out of stock items", pct: 35 },
         { reason: "High delivery timelines", pct: 24 },
@@ -131,10 +165,10 @@ export default function FunnelsTab() {
     },
     "Add to Cart": {
       title: "ADD TO CART ANALYSIS",
-      users: "23.9M",
-      successRate: "39.0%",
+      users: `${(step4Users / 1000000).toFixed(4)}M`,
+      successRate: `${step4Rate.toFixed(2)}%`,
       avgItems: "2.4 items added",
-      revenue: "₹320 Cr influence",
+      revenue: `₹${(320 + (isSimulating ? gmvTodayOffset * 0.75 / 10000000 : 0)).toFixed(4)} Cr influence`,
       dropReasons: [
         { reason: "High product price", pct: 32 },
         { reason: "Delivery fee surprise", pct: 21 },
@@ -148,10 +182,10 @@ export default function FunnelsTab() {
     },
     "Checkout Started": {
       title: "CHECKOUT STARTED",
-      users: "9.3M",
-      successRate: "38.9%",
+      users: `${(step5Users / 1000000).toFixed(4)}M`,
+      successRate: `${step5Rate.toFixed(2)}%`,
       avgItems: "1.2 checkouts/user",
-      revenue: "₹190 Cr influenced",
+      revenue: `₹${(190 + (isSimulating ? gmvTodayOffset * 0.44 / 10000000 : 0)).toFixed(4)} Cr influenced`,
       dropReasons: [
         { reason: "Complex address forms", pct: 40 },
         { reason: "COD payment restriction", pct: 28 },
@@ -165,10 +199,10 @@ export default function FunnelsTab() {
     },
     "Payment Success": {
       title: "PAYMENT SUCCESS",
-      users: "6.48M",
-      successRate: "69.7%",
+      users: `${(step6Users / 1000000).toFixed(4)}M`,
+      successRate: `${step6Rate.toFixed(2)}%`,
       avgItems: "1.0 order completed",
-      revenue: "₹428.3 Cr generated",
+      revenue: `₹${(revenueRaw / 10000000).toFixed(4)} Cr generated`,
       dropReasons: [
         { reason: "Bank server failures", pct: 48 },
         { reason: "UPI timeout drops", pct: 32 },
@@ -182,13 +216,15 @@ export default function FunnelsTab() {
     }
   };
 
+  const selectedStep = selectedStepKey ? stepDetailsMap[selectedStepKey] : null;
+
   // Overall KPIs
   const kpis = {
-    conversion: { value: "4.32%", change: "+8.6%", trend: "up" },
-    conversions: { value: "6.48M", change: "+5.2%", trend: "up" },
-    entered: { value: "149.2M", change: "+3.1%", trend: "up" },
+    conversion: { value: `${conversionRate.toFixed(2)}%`, change: "+8.6%", trend: "up" },
+    conversions: { value: `${(conversionsRaw / 1000000).toFixed(4)}M`, change: "+5.2%", trend: "up" },
+    entered: { value: `${(enteredRaw / 1000000).toFixed(4)}M`, change: "+3.1%", trend: "up" },
     time: { value: "12m 34s", change: "-4.6%", trend: "down" },
-    revenue: { value: "₹428.3 Cr", change: "+9.4%", trend: "up" }
+    revenue: { value: `₹${(revenueRaw / 10000000).toFixed(4)} Cr`, change: "+9.4%", trend: "up" }
   };
 
   // Recharts Line trend data (May 13 - June 12)
@@ -203,7 +239,7 @@ export default function FunnelsTab() {
     { date: "3 Jun", conversion: 4.38, prevConversion: 4.10 },
     { date: "6 Jun", conversion: 4.45, prevConversion: 4.15 },
     { date: "9 Jun", conversion: 4.40, prevConversion: 4.20 },
-    { date: "12 Jun", conversion: 4.32, prevConversion: 4.25 }
+    { date: "12 Jun", conversion: isSimulating ? parseFloat(conversionRate.toFixed(2)) : 4.32, prevConversion: 4.25 }
   ];
 
   // AI Insights
@@ -237,28 +273,25 @@ export default function FunnelsTab() {
 
   // Drop-off rows
   const dropOffs = [
-    { step: "Product Viewed → Add to Cart", count: "37.4M", rate: "61.0%", change: "↑ 3.2%", trend: "up" },
-    { step: "Add to Cart → Checkout Started", count: "14.6M", rate: "61.6%", change: "↑ 4.8%", trend: "up" },
-    { step: "Checkout Started → Payment Success", count: "2.82M", rate: "30.3%", change: "↑ 7.3%", trend: "up" },
-    { step: "Search Completed → Product Viewed", count: "37.4M", rate: "37.9%", change: "↑ 1.2%", trend: "up" },
-    { step: "App Opened → Search Completed", count: "50.5M", rate: "33.8%", change: "↓ 0.6%", trend: "down" }
+    { step: "Product Viewed → Add to Cart", count: `${(drop3Users / 1000000).toFixed(4)}M`, rate: `${drop3Rate.toFixed(2)}%`, change: "↑ 3.2%", trend: "up" },
+    { step: "Add to Cart → Checkout Started", count: `${(drop4Users / 1000000).toFixed(4)}M`, rate: `${drop4Rate.toFixed(2)}%`, change: "↑ 4.8%", trend: "up" },
+    { step: "Checkout Started → Payment Success", count: `${(drop5Users / 1000000).toFixed(4)}M`, rate: `${drop5Rate.toFixed(2)}%`, change: "↑ 7.3%", trend: "up" },
+    { step: "Search Completed → Product Viewed", count: `${(drop2Users / 1000000).toFixed(4)}M`, rate: `${drop2Rate.toFixed(2)}%`, change: "↑ 1.2%", trend: "up" },
+    { step: "App Opened → Search Completed", count: `${(drop1Users / 1000000).toFixed(4)}M`, rate: `${drop1Rate.toFixed(2)}%`, change: "↓ 0.6%", trend: "down" }
   ];
 
   // Segments
   const segments = [
-    { name: "Premium Users", entered: "24.8M", conversion: "6.72%", change: "↑ 9.8%", trend: "up" },
-    { name: "Frequent Buyers", entered: "31.2M", conversion: "7.18%", change: "↑ 6.5%", trend: "up" },
-    { name: "New Users", entered: "38.6M", conversion: "2.34%", change: "↑ 4.1%", trend: "up" },
-    { name: "At Risk Users", entered: "8.4M", conversion: "1.12%", change: "↓ 2.3%", trend: "down" },
-    { name: "Electronics Enthusiasts", entered: "18.7M", conversion: "5.98%", change: "↑ 8.9%", trend: "up" }
+    { name: "Premium Users", entered: `${(24.8 + (isSimulating ? ordersTodayOffset * 0.16 : 0) / 1000000).toFixed(4)}M`, conversion: `${(6.72 + (isSimulating ? Math.sin(ordersTodayOffset / 1000) * 0.08 : 0)).toFixed(2)}%`, change: "↑ 9.8%", trend: "up" },
+    { name: "Frequent Buyers", entered: `${(31.2 + (isSimulating ? ordersTodayOffset * 0.22 : 0) / 1000000).toFixed(4)}M`, conversion: `${(7.18 + (isSimulating ? Math.cos(ordersTodayOffset / 1200) * 0.07 : 0)).toFixed(2)}%`, change: "↑ 6.5%", trend: "up" },
+    { name: "New Users", entered: `${(38.6 + (isSimulating ? ordersTodayOffset * 0.25 : 0) / 1000000).toFixed(4)}M`, conversion: `${(2.34 + (isSimulating ? Math.sin(ordersTodayOffset / 1500) * 0.05 : 0)).toFixed(2)}%`, change: "↑ 4.1%", trend: "up" },
+    { name: "At Risk Users", entered: `${(8.4 + (isSimulating ? ordersTodayOffset * 0.05 : 0) / 1000000).toFixed(4)}M`, conversion: `${(1.12 + (isSimulating ? Math.cos(ordersTodayOffset / 2000) * 0.02 : 0)).toFixed(2)}%`, change: "↓ 2.3%", trend: "down" },
+    { name: "Electronics Enthusiasts", entered: `${(18.7 + (isSimulating ? ordersTodayOffset * 0.12 : 0) / 1000000).toFixed(4)}M`, conversion: `${(5.98 + (isSimulating ? Math.sin(ordersTodayOffset / 800) * 0.06 : 0)).toFixed(2)}%`, change: "↑ 8.9%", trend: "up" }
   ];
 
   // Click handler to display step detail drawer
   const handleStepClick = (stepName: string) => {
-    const details = stepDetailsMap[stepName];
-    if (details) {
-      setSelectedStep(details);
-    }
+    setSelectedStepKey(stepName);
   };
 
   const handleActionToast = (text: string) => {
@@ -630,12 +663,12 @@ export default function FunnelsTab() {
                         <span className="w-4 h-4 bg-emerald-500/10 border border-emerald-500/20 text-primary rounded flex items-center justify-center font-bold">1</span>
                         <span>App Opened</span>
                       </span>
-                      <p className="text-xs font-bold text-text-bright">149.2M</p>
+                      <p className="text-xs font-bold text-text-bright">{kpis.entered.value}</p>
                     </div>
 
                     <div className="mt-auto pb-2">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-900 border border-border-subtle text-text-muted group-hover:text-primary transition-colors">
-                        100%
+                        {step1Rate.toFixed(2)}%
                       </span>
                     </div>
                   </div>
@@ -645,8 +678,8 @@ export default function FunnelsTab() {
                     {showDropOff && (
                       <div className="bg-red-500/5 border border-red-500/15 p-1 rounded backdrop-blur">
                         <span className="block text-[8px] uppercase font-semibold opacity-60">Drop</span>
-                        <span className="block font-black">50.5M</span>
-                        <span className="block opacity-80">33.8%</span>
+                        <span className="block font-black">{(drop1Users / 1000000).toFixed(4)}M</span>
+                        <span className="block opacity-80">{drop1Rate.toFixed(2)}%</span>
                         <ArrowDown className="w-3 h-3 mx-auto mt-0.5" />
                       </div>
                     )}
@@ -662,12 +695,12 @@ export default function FunnelsTab() {
                         <span className="w-4 h-4 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded flex items-center justify-center font-bold">2</span>
                         <span>Search</span>
                       </span>
-                      <p className="text-xs font-bold text-text-bright">98.7M</p>
+                      <p className="text-xs font-bold text-text-bright">{(step2Users / 1000000).toFixed(4)}M</p>
                     </div>
 
                     <div className="mt-auto pb-2">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-900 border border-border-subtle text-text-muted group-hover:text-cyan-400 transition-colors">
-                        66.2%
+                        {step2Rate.toFixed(2)}%
                       </span>
                     </div>
                   </div>
@@ -677,8 +710,8 @@ export default function FunnelsTab() {
                     {showDropOff && (
                       <div className="bg-red-500/5 border border-red-500/15 p-1 rounded backdrop-blur">
                         <span className="block text-[8px] uppercase font-semibold opacity-60">Drop</span>
-                        <span className="block font-black">37.4M</span>
-                        <span className="block opacity-80">37.9%</span>
+                        <span className="block font-black">{(drop2Users / 1000000).toFixed(4)}M</span>
+                        <span className="block opacity-80">{drop2Rate.toFixed(2)}%</span>
                         <ArrowDown className="w-3 h-3 mx-auto mt-0.5" />
                       </div>
                     )}
@@ -694,12 +727,12 @@ export default function FunnelsTab() {
                         <span className="w-4 h-4 bg-blue-500/10 border border-blue-500/20 text-accent-blue rounded flex items-center justify-center font-bold">3</span>
                         <span>Product Viewed</span>
                       </span>
-                      <p className="text-xs font-bold text-text-bright">61.3M</p>
+                      <p className="text-xs font-bold text-text-bright">{(step3Users / 1000000).toFixed(4)}M</p>
                     </div>
 
                     <div className="mt-auto pb-2">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-900 border border-border-subtle text-text-muted group-hover:text-accent-blue transition-colors">
-                        62.1%
+                        {step3Rate.toFixed(2)}%
                       </span>
                     </div>
                   </div>
@@ -709,8 +742,8 @@ export default function FunnelsTab() {
                     {showDropOff && (
                       <div className="bg-red-500/5 border border-red-500/15 p-1 rounded backdrop-blur">
                         <span className="block text-[8px] uppercase font-semibold opacity-60">Drop</span>
-                        <span className="block font-black">37.4M</span>
-                        <span className="block opacity-80">61.9%</span>
+                        <span className="block font-black">{(drop3Users / 1000000).toFixed(4)}M</span>
+                        <span className="block opacity-80">{drop3Rate.toFixed(2)}%</span>
                         <ArrowDown className="w-3 h-3 mx-auto mt-0.5" />
                       </div>
                     )}
@@ -726,12 +759,12 @@ export default function FunnelsTab() {
                         <span className="w-4 h-4 bg-pink-500/10 border border-pink-500/20 text-accent-pink rounded flex items-center justify-center font-bold">4</span>
                         <span>Add to Cart</span>
                       </span>
-                      <p className="text-xs font-bold text-text-bright">23.9M</p>
+                      <p className="text-xs font-bold text-text-bright">{(step4Users / 1000000).toFixed(4)}M</p>
                     </div>
 
                     <div className="mt-auto pb-2">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-900 border border-border-subtle text-text-muted group-hover:text-accent-pink transition-colors">
-                        39.0%
+                        {step4Rate.toFixed(2)}%
                       </span>
                     </div>
                   </div>
@@ -741,8 +774,8 @@ export default function FunnelsTab() {
                     {showDropOff && (
                       <div className="bg-red-500/5 border border-red-500/15 p-1 rounded backdrop-blur">
                         <span className="block text-[8px] uppercase font-semibold opacity-60">Drop</span>
-                        <span className="block font-black">14.6M</span>
-                        <span className="block opacity-80">61.1%</span>
+                        <span className="block font-black">{(drop4Users / 1000000).toFixed(4)}M</span>
+                        <span className="block opacity-80">{drop4Rate.toFixed(2)}%</span>
                         <ArrowDown className="w-3 h-3 mx-auto mt-0.5" />
                       </div>
                     )}
@@ -758,12 +791,12 @@ export default function FunnelsTab() {
                         <span className="w-4 h-4 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded flex items-center justify-center font-bold">5</span>
                         <span>Checkout</span>
                       </span>
-                      <p className="text-xs font-bold text-text-bright">9.3M</p>
+                      <p className="text-xs font-bold text-text-bright">{(step5Users / 1000000).toFixed(4)}M</p>
                     </div>
 
                     <div className="mt-auto pb-2">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-900 border border-border-subtle text-text-muted group-hover:text-amber-400 transition-colors">
-                        38.9%
+                        {step5Rate.toFixed(2)}%
                       </span>
                     </div>
                   </div>
@@ -773,8 +806,8 @@ export default function FunnelsTab() {
                     {showDropOff && (
                       <div className="bg-red-500/5 border border-red-500/15 p-1 rounded backdrop-blur">
                         <span className="block text-[8px] uppercase font-semibold opacity-60">Drop</span>
-                        <span className="block font-black">2.82M</span>
-                        <span className="block opacity-80">30.3%</span>
+                        <span className="block font-black">{(drop5Users / 1000000).toFixed(4)}M</span>
+                        <span className="block opacity-80">{drop5Rate.toFixed(2)}%</span>
                         <ArrowDown className="w-3 h-3 mx-auto mt-0.5" />
                       </div>
                     )}
@@ -790,12 +823,12 @@ export default function FunnelsTab() {
                         <span className="w-4 h-4 bg-emerald-500/10 border border-emerald-500/20 text-primary rounded flex items-center justify-center font-bold">6</span>
                         <span>Success</span>
                       </span>
-                      <p className="text-xs font-bold text-text-bright">6.48M</p>
+                      <p className="text-xs font-bold text-text-bright">{kpis.conversions.value}</p>
                     </div>
 
                     <div className="mt-auto pb-2">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-900 border border-border-subtle text-text-muted group-hover:text-primary transition-colors">
-                        69.7%
+                        {step6Rate.toFixed(2)}%
                       </span>
                     </div>
                   </div>
@@ -810,12 +843,12 @@ export default function FunnelsTab() {
                 <span className="text-[10px] font-bold text-text-muted uppercase">Cumulative Funnel Conversion Rate Progression</span>
                 <div className="space-y-3.5">
                   {[
-                    { name: "App Opened", pct: 100, count: "149.2M" },
-                    { name: "Search Completed", pct: 66.2, count: "98.7M" },
-                    { name: "Product Viewed", pct: 41.1, count: "61.3M" },
-                    { name: "Add to Cart", pct: 16.0, count: "23.9M" },
-                    { name: "Checkout Started", pct: 6.23, count: "9.3M" },
-                    { name: "Payment Success", pct: 4.34, count: "6.48M" }
+                    { name: "App Opened", pct: 100, count: `${(step1Users / 1000000).toFixed(4)}M` },
+                    { name: "Search Completed", pct: parseFloat(step2Rate.toFixed(2)), count: `${(step2Users / 1000000).toFixed(4)}M` },
+                    { name: "Product Viewed", pct: parseFloat(((step3Users / step1Users) * 100).toFixed(2)), count: `${(step3Users / 1000000).toFixed(4)}M` },
+                    { name: "Add to Cart", pct: parseFloat(((step4Users / step1Users) * 100).toFixed(2)), count: `${(step4Users / 1000000).toFixed(4)}M` },
+                    { name: "Checkout Started", pct: parseFloat(((step5Users / step1Users) * 100).toFixed(2)), count: `${(step5Users / 1000000).toFixed(4)}M` },
+                    { name: "Payment Success", pct: parseFloat(conversionRate.toFixed(2)), count: `${(step6Users / 1000000).toFixed(4)}M` }
                   ].map((item, idx) => (
                     <div key={item.name} className="space-y-1">
                       <div className="flex justify-between">
@@ -842,9 +875,9 @@ export default function FunnelsTab() {
                     <Smartphone className="w-4 h-4 text-accent-blue" />
                   </div>
                   <div className="space-y-2.5">
-                    <div className="flex justify-between"><span>Android:</span><span className="font-bold text-text-bright">85M users (4.1% conv)</span></div>
-                    <div className="flex justify-between"><span>iOS:</span><span className="font-bold text-accent-purple">40M users (6.2% conv)</span></div>
-                    <div className="flex justify-between"><span>Web:</span><span className="font-bold text-text-muted">24M users (3.2% conv)</span></div>
+                    <div className="flex justify-between"><span>Android:</span><span className="font-bold text-text-bright">{(85 + (isSimulating ? ordersTodayOffset * 0.13 : 0) / 1000000).toFixed(4)}M users ({(4.1 + (isSimulating ? Math.sin(ordersTodayOffset / 1000) * 0.05 : 0)).toFixed(2)}% conv)</span></div>
+                    <div className="flex justify-between"><span>iOS:</span><span className="font-bold text-accent-purple">{(40 + (isSimulating ? ordersTodayOffset * 0.08 : 0) / 1000000).toFixed(4)}M users ({(6.2 + (isSimulating ? Math.cos(ordersTodayOffset / 1200) * 0.08 : 0)).toFixed(2)}% conv)</span></div>
+                    <div className="flex justify-between"><span>Web:</span><span className="font-bold text-text-muted">{(24 + (isSimulating ? ordersTodayOffset * 0.05 : 0) / 1000000).toFixed(4)}M users ({(3.2 + (isSimulating ? Math.sin(ordersTodayOffset / 1500) * 0.04 : 0)).toFixed(2)}% conv)</span></div>
                   </div>
                 </div>
 
@@ -855,10 +888,10 @@ export default function FunnelsTab() {
                     <Globe className="w-4 h-4 text-primary" />
                   </div>
                   <div className="space-y-2.5">
-                    <div className="flex justify-between"><span>Mumbai:</span><span className="font-bold text-emerald-400">5.8% conv</span></div>
-                    <div className="flex justify-between"><span>Delhi:</span><span className="font-bold text-text-bright">5.4% conv</span></div>
-                    <div className="flex justify-between"><span>Bangalore:</span><span className="font-bold text-primary">6.1% conv</span></div>
-                    <div className="flex justify-between"><span>Hyderabad:</span><span className="font-bold text-text-muted">4.7% conv</span></div>
+                    <div className="flex justify-between"><span>Mumbai:</span><span className="font-bold text-emerald-400">{(5.8 + (isSimulating ? Math.cos(ordersTodayOffset / 900) * 0.06 : 0)).toFixed(2)}% conv</span></div>
+                    <div className="flex justify-between"><span>Delhi:</span><span className="font-bold text-text-bright">{(5.4 + (isSimulating ? Math.sin(ordersTodayOffset / 1100) * 0.05 : 0)).toFixed(2)}% conv</span></div>
+                    <div className="flex justify-between"><span>Bangalore:</span><span className="font-bold text-primary">{(6.1 + (isSimulating ? Math.cos(ordersTodayOffset / 700) * 0.07 : 0)).toFixed(2)}% conv</span></div>
+                    <div className="flex justify-between"><span>Hyderabad:</span><span className="font-bold text-text-muted">{(4.7 + (isSimulating ? Math.sin(ordersTodayOffset / 1300) * 0.04 : 0)).toFixed(2)}% conv</span></div>
                   </div>
                 </div>
 
@@ -871,10 +904,10 @@ export default function FunnelsTab() {
                   <p className="font-bold text-text-bright block truncate">New Checkout Flow V2</p>
                   <p className="text-[10px] text-text-muted font-bold font-mono text-primary flex justify-between">
                     <span>Variant B</span>
-                    <span>+12.4% checkouts</span>
+                    <span>+{(12.4 + (isSimulating ? Math.sin(ordersTodayOffset / 800) * 0.15 : 0)).toFixed(2)}% checkouts</span>
                   </p>
                   <div className="text-[9px] text-text-muted font-semibold">
-                    Influenced +₹18Cr GMV across 22M users.
+                    Influenced +₹{(18 + (isSimulating ? gmvTodayOffset / 150000000 : 0)).toFixed(2)}Cr GMV across {(22 + (isSimulating ? ordersTodayOffset * 0.05 / 1000000 : 0)).toFixed(4)}M users.
                   </div>
                 </div>
 
@@ -1045,7 +1078,7 @@ export default function FunnelsTab() {
       {/* ================= STEP INTELLIGENCE DRAWER (RIGHT SLIDE OUT) ================= */}
       {selectedStep && (
         <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex justify-end">
-          <div className="absolute inset-0 cursor-pointer" onClick={() => setSelectedStep(null)} />
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setSelectedStepKey(null)} />
           
           <div className="relative w-full max-w-md bg-slate-950 border-l border-border-subtle h-full p-6 shadow-2xl flex flex-col gap-6 overflow-y-auto animate-slide-left">
             
@@ -1056,7 +1089,7 @@ export default function FunnelsTab() {
                 <h4 className="text-md font-black text-text-bright tracking-tight mt-1">{selectedStep.title}</h4>
               </div>
               <button 
-                onClick={() => setSelectedStep(null)}
+                onClick={() => setSelectedStepKey(null)}
                 className="p-1 rounded bg-slate-900 border border-border-subtle text-text-muted hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1129,7 +1162,7 @@ export default function FunnelsTab() {
               <button 
                 onClick={() => {
                   handleActionToast(`Cohort created for ${selectedStep.title} drops.`);
-                  setSelectedStep(null);
+                  setSelectedStepKey(null);
                 }} 
                 className="flex-1 py-2 bg-slate-900 border border-border-subtle hover:border-slate-800 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
               >
@@ -1138,7 +1171,7 @@ export default function FunnelsTab() {
               <button 
                 onClick={() => {
                   handleActionToast(`Campaign scheduled for ${selectedStep.title} users.`);
-                  setSelectedStep(null);
+                  setSelectedStepKey(null);
                 }}
                 className="flex-1 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
               >
