@@ -28,9 +28,11 @@ import {
   Code
 } from "lucide-react";
 import { mockEngine, AnalyticsEvent } from "@/lib/mockEngine";
+import { useSimulation } from "@/context/SimulationContext";
 
 export default function EventsTab() {
   const [activeSubTab, setActiveSubTab] = useState<"explorer" | "stream" | "taxonomy" | "quality">("explorer");
+  const { isSimulating, liveRps, totalSimulatedEvents, liveLogs: contextLiveLogs } = useSimulation();
   
   // Environment & filters states
   const [platformFilter, setPlatformFilter] = useState("All");
@@ -64,7 +66,7 @@ export default function EventsTab() {
 
   // Live Stream tick simulator
   useEffect(() => {
-    if (activeSubTab !== "stream") return;
+    if (isSimulating || activeSubTab !== "stream") return;
     
     const interval = setInterval(() => {
       const users = mockEngine.users;
@@ -90,7 +92,16 @@ export default function EventsTab() {
     }, 1200);
 
     return () => clearInterval(interval);
-  }, [activeSubTab]);
+  }, [activeSubTab, isSimulating]);
+
+  // Auto-scroll when simulation console log updates
+  useEffect(() => {
+    if (isSimulating && activeSubTab === "stream") {
+      consoleBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [contextLiveLogs, isSimulating, activeSubTab]);
+
+  const displayLogs = isSimulating ? contextLiveLogs : liveLogs;
 
   // Selected Taxonomy category state
   const [activeCategory, setActiveCategory] = useState("Discovery");
@@ -211,13 +222,23 @@ export default function EventsTab() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="glass-panel p-4 rounded-xl">
           <span className="block text-[10px] text-text-muted uppercase">Events Today</span>
-          <span className="text-xl font-bold text-text-bright mt-1 block">5.8 Billion</span>
-          <span className="text-[9px] text-primary font-bold bg-primary/10 px-1 rounded block w-fit mt-1">+4.2% today</span>
+          <span className="text-xl font-bold text-text-bright mt-1 block font-mono">
+            {isSimulating 
+              ? `${((5800000000 + totalSimulatedEvents) / 1000000000).toFixed(6)} Billion` 
+              : "5.8 Billion"}
+          </span>
+          <span className="text-[9px] text-primary font-bold bg-primary/10 px-1 rounded block w-fit mt-1">
+            {isSimulating ? "Live Ingestion In-Progress" : "+4.2% today"}
+          </span>
         </div>
         <div className="glass-panel p-4 rounded-xl">
           <span className="block text-[10px] text-text-muted uppercase">Ingestion Rate</span>
-          <span className="text-xl font-bold text-text-bright mt-1 block">68,400/sec</span>
-          <span className="text-[9px] text-text-muted block mt-1.5">Load levels normal</span>
+          <span className={`text-xl font-bold mt-1 block font-mono ${isSimulating ? "text-emerald-400 animate-pulse" : "text-text-bright"}`}>
+            {isSimulating ? `${liveRps.toLocaleString()}/sec` : "68,400/sec"}
+          </span>
+          <span className="text-[9px] text-text-muted block mt-1.5">
+            {isSimulating ? "High throughput load" : "Load levels normal"}
+          </span>
         </div>
         <div className="glass-panel p-4 rounded-xl">
           <span className="block text-[10px] text-text-muted uppercase">Tracking Coverage</span>
@@ -398,7 +419,7 @@ export default function EventsTab() {
 
             {/* Scrolling log text block */}
             <div className="h-72 overflow-y-auto font-mono text-[11px] text-primary p-3 space-y-2 mt-3 bg-black/40 border border-border-subtle rounded-lg">
-              {liveLogs.map((log, idx) => (
+              {displayLogs.map((log, idx) => (
                 <div key={idx} className="flex gap-2 leading-relaxed">
                   <span className="text-text-muted">[{log.time}]</span>
                   <span className="text-accent-blue font-bold">{log.event}</span>

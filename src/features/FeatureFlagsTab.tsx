@@ -32,6 +32,7 @@ import {
   GitMerge,
   UserCheck
 } from "lucide-react";
+import { useSimulation } from "@/context/SimulationContext";
 
 // TypeScript interfaces
 interface AuditLogRow {
@@ -71,6 +72,7 @@ interface FeatureFlagDataRow {
 }
 
 export default function FeatureFlagsTab() {
+  const { isSimulating, flagEvaluationsOffset } = useSimulation();
   // Environments state
   const [environment, setEnvironment] = useState("Production");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -258,8 +260,12 @@ export default function FeatureFlagsTab() {
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[11px] text-text-muted">
               <span>Environment: <span className="text-emerald-400 font-semibold">● {environment}</span></span>
               <span>Active Flags: <span className="text-text-bright font-semibold">142</span></span>
-              <span>Evaluated Today: <span className="text-text-bright font-semibold">48.2M Users</span></span>
-              <span>Last Sync: <span className="text-text-bright font-mono">12s ago</span></span>
+              <span>Evaluated Today: <span className="text-text-bright font-semibold font-mono">
+                {isSimulating 
+                  ? `${((48.2 * 1000000 + flagEvaluationsOffset) / 1000000).toFixed(6)}M Users` 
+                  : "48.2M Users"}
+              </span></span>
+              <span>Last Sync: <span className="text-text-bright font-mono">{isSimulating ? "Just now" : "12s ago"}</span></span>
             </div>
           </div>
         </div>
@@ -314,8 +320,12 @@ export default function FeatureFlagsTab() {
         <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between hover:border-primary/20 transition-all">
           <span className="text-[10px] uppercase font-bold text-text-muted">Users Evaluated</span>
           <div className="mt-3">
-            <div className="text-xl font-bold text-text-bright">48.2M</div>
-            <span className="text-[9px] text-text-muted">Accumulated today</span>
+            <div className="text-xl font-bold text-text-bright font-mono">
+              {isSimulating 
+                ? `${((48.2 * 1000000 + flagEvaluationsOffset) / 1000000).toFixed(6)}M` 
+                : "48.2M"}
+            </div>
+            <span className="text-[9px] text-text-muted">{isSimulating ? "Ticking live..." : "Accumulated today"}</span>
           </div>
         </div>
 

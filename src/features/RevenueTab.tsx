@@ -45,6 +45,7 @@ import {
   LineChart,
   Line
 } from "recharts";
+import { useSimulation } from "@/context/SimulationContext";
 
 // TypeScript interfaces
 interface TopCustomerRow {
@@ -59,6 +60,7 @@ interface TopCustomerRow {
 }
 
 export default function RevenueTab() {
+  const { isSimulating, mrrOffset } = useSimulation();
   // Global Filters states
   const [dateRange, setDateRange] = useState("Last 12 Months");
   const [comparePeriod, setComparePeriod] = useState("Previous Period");
@@ -460,7 +462,11 @@ export default function RevenueTab() {
             <DollarSign className="w-4.5 h-4.5 text-emerald-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="mt-2.5">
-            <div className="text-xl font-bold text-text-bright">$1.287M</div>
+            <div className="text-xl font-bold text-text-bright font-mono">
+              {isSimulating 
+                ? `$${((1287142 + mrrOffset) / 1000000).toFixed(6)}M` 
+                : "$1.287M"}
+            </div>
             <div className="flex items-center justify-between mt-1 text-[10px]">
               <span className="text-emerald-400 font-semibold flex items-center">↑ 15.4%</span>
               <MiniSparkline data={mrrSparklineData} color="#00D084" />
@@ -475,10 +481,14 @@ export default function RevenueTab() {
             <TrendingUp className="w-4.5 h-4.5 text-primary group-hover:scale-110 transition-transform" />
           </div>
           <div className="mt-2.5">
-            <div className="text-xl font-bold text-text-bright">$15.44M</div>
+            <div className="text-xl font-bold text-text-bright font-mono">
+              {isSimulating 
+                ? `$${((15445704 + mrrOffset * 12) / 1000000).toFixed(6)}M` 
+                : "$15.44M"}
+            </div>
             <div className="flex items-center gap-1 mt-1 text-[10px]">
               <span className="text-emerald-400 font-semibold">↑ 18.2%</span>
-              <span className="text-text-muted">YoY baseline</span>
+              <span className="text-text-muted">{isSimulating ? "Ticking YoY" : "YoY baseline"}</span>
             </div>
           </div>
         </div>

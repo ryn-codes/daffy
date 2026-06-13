@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { mockEngine } from "@/lib/mockEngine";
+import { SimulationProvider, useSimulation } from "@/context/SimulationContext";
 
 // Import tabs dynamically in client scope
 import OverviewTab from "@/features/OverviewTab";
@@ -44,10 +45,17 @@ interface AppShellProps {
 }
 
 export default function AppShell({ initialTab = "overview" }: AppShellProps) {
+  return (
+    <SimulationProvider>
+      <AppShellContent initialTab={initialTab} />
+    </SimulationProvider>
+  );
+}
+
+function AppShellContent({ initialTab = "overview" }: AppShellProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [collapsed, setCollapsed] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simulatedCount, setSimulatedCount] = useState(0);
+  const { isSimulating, toggleSimulation, liveRps, totalSimulatedEvents } = useSimulation();
 
   const menuItems = [
     { id: "overview", label: "Overview", icon: BarChart3 },
@@ -63,31 +71,6 @@ export default function AppShell({ initialTab = "overview" }: AppShellProps) {
     { id: "flags", label: "Feature Flags", icon: Flag },
     { id: "replay", label: "Session Replay", icon: Play },
   ];
-
-  // Simulates custom analytical events in real-time
-  const handleSimulateEvent = () => {
-    setIsSimulating(true);
-    
-    // Select a random user
-    const users = mockEngine.users;
-    const randomUser = users[Math.floor(Math.random() * users.length)];
-    
-    // Random event sequence
-    const simulationEvents = [
-      { name: "pageview", props: { path: "/pricing", duration: 12 } },
-      { name: "checkout_initiated", props: { cart_total: 99 } },
-      { name: "purchase_completed", props: { amount: 99 } },
-      { name: "error_triggered", props: { code: 500, type: "API Timeout" } }
-    ];
-    
-    const randomEvent = simulationEvents[Math.floor(Math.random() * simulationEvents.length)];
-    
-    setTimeout(() => {
-      mockEngine.addCustomEvent(randomEvent.name, randomUser.id, randomEvent.props);
-      setIsSimulating(false);
-      setSimulatedCount(prev => prev + 1);
-    }, 800);
-  };
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -140,7 +123,7 @@ export default function AppShell({ initialTab = "overview" }: AppShellProps) {
                 animate={{ opacity: 1 }}
                 className="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent"
               >
-                PAL Analytics
+                Daffy Analytics
               </motion.span>
             )}
           </div>
@@ -217,7 +200,7 @@ export default function AppShell({ initialTab = "overview" }: AppShellProps) {
             </div>
             <div className="flex items-center gap-2 text-xs text-text-muted">
               <Sliders className="w-3.5 h-3.5" />
-              <span>Project ID: <span className="font-mono text-[10px]">pal_acme_prod</span></span>
+              <span>Project ID: <span className="font-mono text-[10px]">daffy_acme_prod</span></span>
             </div>
           </div>
         )}
@@ -229,32 +212,42 @@ export default function AppShell({ initialTab = "overview" }: AppShellProps) {
         <header className="flex items-center justify-between h-16 px-6 bg-slate-950/90 border-b border-border-subtle z-20 flex-shrink-0">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-border-subtle cursor-pointer hover:border-slate-700 transition-colors">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm animate-pulse" />
+              <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${isSimulating ? "bg-emerald-500 animate-ping" : "bg-emerald-500 animate-pulse"}`} />
               <span className="text-xs font-semibold tracking-wide text-text-bright">Acme Production</span>
             </div>
             
             {/* Live SDK status indicator */}
-            <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
-              Live & Tracking
+            <span className={`hidden md:inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${
+              isSimulating 
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 animate-pulse" 
+                : "bg-primary/10 text-primary border border-primary/20"
+            }`}>
+              {isSimulating ? "Simulating ~1.04L/s" : "Live & Tracking"}
             </span>
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Total simulated events counter */}
+            {isSimulating && totalSimulatedEvents > 0 && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-border-subtle text-[10px] font-mono text-text-muted">
+                Simulated: <span className="font-bold text-primary">{totalSimulatedEvents.toLocaleString()}</span>
+              </span>
+            )}
+
             {/* Simulating Engine Event Injection button */}
             <button
-              onClick={handleSimulateEvent}
-              disabled={isSimulating}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              onClick={toggleSimulation}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                 isSimulating 
-                  ? "bg-slate-900 border-border-subtle text-text-muted cursor-not-allowed" 
+                  ? "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-400 shadow-lg shadow-emerald-500/5" 
                   : "bg-primary/5 hover:bg-primary/15 border-primary/20 text-primary hover:border-primary/45"
               }`}
             >
-              <PlusCircle className={`w-4 h-4 ${isSimulating ? "animate-spin" : ""}`} />
-              <span>{isSimulating ? "Injecting Event..." : "Simulate Live Action"}</span>
-              {simulatedCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-primary text-white font-mono text-[10px]">
-                  +{simulatedCount}
+              <PlusCircle className={`w-4 h-4 ${isSimulating ? "animate-spin text-emerald-400" : ""}`} />
+              <span>{isSimulating ? "Simulating Live..." : "Simulate Live Action"}</span>
+              {isSimulating && (
+                <span className="ml-1 px-1.5 py-0.2 rounded bg-emerald-500 text-white font-mono text-[9px] animate-pulse">
+                  {liveRps.toLocaleString()} eps
                 </span>
               )}
             </button>

@@ -36,9 +36,20 @@ import {
   Bar 
 } from "recharts";
 import { mockEngine } from "@/lib/mockEngine";
+import { useSimulation } from "@/context/SimulationContext";
 
 export default function OverviewTab() {
   const [dateRange, setDateRange] = useState("30d");
+  const { 
+    isSimulating, 
+    gmvTodayOffset, 
+    ordersTodayOffset, 
+    buyersTodayOffset, 
+    apiLatency, 
+    crashRate, 
+    searchLatency, 
+    zeroResults 
+  } = useSimulation();
   
   // Query commerce data from the scaled mock engine
   const metrics = mockEngine.getKPIMetrics(dateRange);
@@ -51,6 +62,17 @@ export default function OverviewTab() {
   const appPerformance = mockEngine.getAppPerformance();
   const experiments = mockEngine.getExperimentSummary();
   const aiInsights = mockEngine.getAIInsights();
+
+  // Dynamic live metric tickers
+  const gmvValue = isSimulating 
+    ? `₹${(428 + gmvTodayOffset / 1000000).toFixed(4)} Cr` 
+    : metrics.gmv.value;
+  const ordersValue = isSimulating 
+    ? `${(18.6 + ordersTodayOffset / 1000000).toFixed(6)}M` 
+    : metrics.orders.value;
+  const buyersValue = isSimulating 
+    ? `${(12.8 + buyersTodayOffset / 1000000).toFixed(6)}M` 
+    : metrics.buyers.value;
 
   const PIE_COLORS = ["#3b82f6", "#10b981", "#8b5cf6", "#ec4899", "#f59e0b"];
 
@@ -90,7 +112,7 @@ export default function OverviewTab() {
             <span>GMV TODAY</span>
             <DollarSign className="w-4 h-4 text-primary" />
           </div>
-          <p className="text-2xl font-black text-text-bright mt-2">{metrics.gmv.value}</p>
+          <p className="text-2xl font-black text-text-bright mt-2 font-mono">{gmvValue}</p>
           <div className="mt-2 flex items-center gap-1.5 text-[10px]">
             <span className="bg-emerald-500/15 text-primary px-1 rounded font-bold">{metrics.gmv.change}</span>
             <span className="text-text-muted">vs yesterday</span>
@@ -107,7 +129,7 @@ export default function OverviewTab() {
             <span>ORDERS</span>
             <ShoppingBag className="w-4 h-4 text-accent-blue" />
           </div>
-          <p className="text-2xl font-black text-text-bright mt-2">{metrics.orders.value}</p>
+          <p className="text-2xl font-black text-text-bright mt-2 font-mono">{ordersValue}</p>
           <div className="mt-2 flex items-center gap-1.5 text-[10px]">
             <span className="bg-emerald-500/15 text-primary px-1 rounded font-bold">{metrics.orders.change}</span>
             <span className="text-text-muted">vs yesterday</span>
@@ -124,7 +146,7 @@ export default function OverviewTab() {
             <span>ACTIVE BUYERS</span>
             <Users className="w-4 h-4 text-accent-purple" />
           </div>
-          <p className="text-2xl font-black text-text-bright mt-2">{metrics.buyers.value}</p>
+          <p className="text-2xl font-black text-text-bright mt-2 font-mono">{buyersValue}</p>
           <div className="mt-2 flex items-center gap-1.5 text-[10px]">
             <span className="bg-emerald-500/15 text-primary px-1 rounded font-bold">{metrics.buyers.change}</span>
             <span className="text-text-muted">vs yesterday</span>
@@ -512,11 +534,11 @@ export default function OverviewTab() {
             <div className="grid grid-cols-2 gap-3 mt-4 text-xs">
               <div className="p-3 bg-slate-900 border border-border-subtle rounded-xl text-center">
                 <span className="block text-[9px] text-text-muted uppercase">Crash Rate</span>
-                <span className="text-lg font-black text-primary font-mono">{appPerformance.crashRate}</span>
+                <span className="text-lg font-black text-primary font-mono">{isSimulating ? `${crashRate}%` : appPerformance.crashRate}</span>
               </div>
               <div className="p-3 bg-slate-900 border border-border-subtle rounded-xl text-center">
                 <span className="block text-[9px] text-text-muted uppercase">P95 Latency</span>
-                <span className="text-lg font-black text-text-bright font-mono">{appPerformance.apiLatency}</span>
+                <span className="text-lg font-black text-text-bright font-mono">{isSimulating ? `${apiLatency}ms` : appPerformance.apiLatency}</span>
               </div>
               <div className="p-3 bg-slate-900 border border-border-subtle rounded-xl text-center">
                 <span className="block text-[9px] text-text-muted uppercase">Load Time</span>
@@ -524,7 +546,7 @@ export default function OverviewTab() {
               </div>
               <div className="p-3 bg-slate-900 border border-border-subtle rounded-xl text-center">
                 <span className="block text-[9px] text-text-muted uppercase">Search Latency</span>
-                <span className="text-lg font-black text-accent-blue font-mono">{appPerformance.searchLatency}</span>
+                <span className="text-lg font-black text-accent-blue font-mono">{isSimulating ? `${searchLatency}ms` : appPerformance.searchLatency}</span>
               </div>
             </div>
           </div>

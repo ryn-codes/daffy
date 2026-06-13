@@ -47,6 +47,7 @@ import {
   LineChart,
   Line
 } from "recharts";
+import { useSimulation } from "@/context/SimulationContext";
 
 // TypeScript types
 interface ExperimentDetails {
@@ -73,6 +74,7 @@ interface ExperimentDetails {
 }
 
 export default function ExperimentsTab() {
+  const { isSimulating, experimentExposedOffset } = useSimulation();
   const [activeExperimentId, setActiveExperimentId] = useState("EXP-2026-0458");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [statusState, setStatusState] = useState<"Running" | "Rolled Out" | "Stopped">("Running");
@@ -226,7 +228,7 @@ export default function ExperimentsTab() {
                 <span>Created: <span className="text-text-bright">{activeExp.created}</span></span>
                 <span>Owner: <span className="text-text-bright font-semibold">{activeExp.owner}</span></span>
                 <span>Team: <span className="text-text-bright">{activeExp.team}</span></span>
-                <span>Timeline: <span className="text-text-bright font-medium">{activeExp.duration}</span></span>
+                <span>Timeline: <span className="text-text-bright font-medium">{isSimulating ? "Live testing in-progress" : activeExp.duration}</span></span>
               </div>
             </div>
           </div>
@@ -335,7 +337,11 @@ export default function ExperimentsTab() {
           <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between hover:border-purple-500/20 transition-all">
             <span className="text-[10px] uppercase font-bold text-text-muted">Affected Users</span>
             <div className="mt-4">
-              <div className="text-lg font-extrabold text-purple-400">{activeExp.affectedUsers}</div>
+              <div className="text-lg font-extrabold text-purple-400 font-mono">
+                {isSimulating 
+                  ? `${((2.5 * 1000000 + experimentExposedOffset) / 1000000).toFixed(6)}M` 
+                  : activeExp.affectedUsers}
+              </div>
               <span className="text-[9px] text-text-muted block mt-0.5">checkout traffic scope</span>
             </div>
           </div>
@@ -343,7 +349,11 @@ export default function ExperimentsTab() {
           <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between hover:border-pink-500/20 transition-all">
             <span className="text-[10px] uppercase font-bold text-text-muted">Incremental Revenue</span>
             <div className="mt-4">
-              <div className="text-lg font-extrabold text-pink-400">{activeExp.revOpportunity}</div>
+              <div className="text-lg font-extrabold text-pink-400">
+                {isSimulating 
+                  ? `₹${(1.8 + experimentExposedOffset / 5000000).toFixed(5)} Cr/mo` 
+                  : activeExp.revOpportunity}
+              </div>
               <span className="text-[9px] text-text-muted block mt-0.5">Estimated ARR contribution</span>
             </div>
           </div>
@@ -412,13 +422,21 @@ export default function ExperimentsTab() {
                   <span className="text-text-muted">Exposed Sessions</span>
                   <span className="font-mono text-text-bright font-semibold">2.5 Million</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between font-mono">
                   <span className="text-text-muted">Control group size</span>
-                  <span className="font-mono text-text-bright">1.25M</span>
+                  <span className="text-text-bright">
+                    {isSimulating 
+                      ? `${((1.25 * 1000000 + experimentExposedOffset / 2) / 1000000).toFixed(6)}M` 
+                      : "1.25M"}
+                  </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between font-mono">
                   <span className="text-text-muted">Variant group size</span>
-                  <span className="font-mono text-text-bright">1.25M</span>
+                  <span className="text-text-bright">
+                    {isSimulating 
+                      ? `${((1.25 * 1000000 + experimentExposedOffset / 2) / 1000000).toFixed(6)}M` 
+                      : "1.25M"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -442,7 +460,12 @@ export default function ExperimentsTab() {
               <div className="space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="font-bold text-text-bright">Control Variant (50%)</span>
-                  <span className="font-mono text-text-muted">1,250,000 Users</span>
+                  <span className="font-mono text-text-muted">
+                    {isSimulating 
+                      ? Math.floor(1250000 + experimentExposedOffset / 2).toLocaleString() 
+                      : "1,250,000"}{" "}
+                    Users
+                  </span>
                 </div>
                 <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-900">
                   <div className="h-full bg-blue-500 rounded-full" style={{ width: "50%" }} />
@@ -454,7 +477,12 @@ export default function ExperimentsTab() {
               <div className="space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="font-bold text-emerald-400">Variant A (50%)</span>
-                  <span className="font-mono text-text-muted">1,250,000 Users</span>
+                  <span className="font-mono text-text-muted">
+                    {isSimulating 
+                      ? Math.floor(1250000 + experimentExposedOffset / 2).toLocaleString() 
+                      : "1,250,000"}{" "}
+                    Users
+                  </span>
                 </div>
                 <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-900">
                   <div className="h-full bg-emerald-500 rounded-full" style={{ width: "50%" }} />
